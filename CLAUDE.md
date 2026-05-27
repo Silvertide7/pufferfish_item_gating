@@ -1,6 +1,81 @@
 # Pufferfish Item Gating
 
+A NeoForge **1.21.1** mod (Java 21, NeoForge 21.1.230) that gates item usage behind player skills from **Pufferfish's Skills** (`puffish_skills`). When a player has not unlocked the required skill(s), the mod prevents them from using a gated item to:
 
+- deal damage to entities
+- break blocks
+- use it (right-click — e.g. draw a bow, cast a fishing rod, raise a shield)
+- equip it as armor
+- equip it as a Curios accessory
+
+Gating rules are **server-authoritative** and defined by datapacks, loaded through a `SimpleJsonResourceReloadListener` so packs can add or override rules without code changes.
+
+## Tech Stack & Versions
+
+- Minecraft 1.21.1 / NeoForge 21.1.230 / Java 21
+- Parchment mappings 2024.11.17 (1.21.1)
+- Hard dependency: Pufferfish's Skills — `net.puffish:skillsmod` (CurseForge `puffish-skills-835091`), mod id `puffish_skills`
+- Planned optional dependency: Curios API — needed only to enforce the curios-equip gate
+
+## Reading skills (Pufferfish's Skills API)
+
+All skill queries are **server-side** and require a `net.minecraft.server.level.ServerPlayer`. Entry point: `net.puffish.skillsmod.api.SkillsAPI`.
+
+- A skill is addressed by a **category** (`ResourceLocation`) plus a **skill id** (`String`).
+- To check whether a player has unlocked a skill:
+
+  ```java
+  boolean unlocked = SkillsAPI.getCategory(categoryId)
+      .flatMap(category -> category.getSkill(skillId))
+      .map(skill -> skill.getState(serverPlayer) == Skill.State.UNLOCKED)
+      .orElse(false);
+  ```
+
+- `Skill.State` is one of `LOCKED, AVAILABLE, AFFORDABLE, UNLOCKED, EXCLUDED`; only `UNLOCKED` counts as "the player has the skill".
+- A reference to a missing category or skill id resolves to "not unlocked" (the rule points at something that does not exist).
+
+## Architecture
+
+- `PufferfishItemGating` — `@Mod` entry point; owns `MODID` and `LOGGER`.
+- `events/EventHandler` — NeoForge game-bus subscribers that enforce the gates (attack, block break, use, equip). Run server-side only.
+- Datapack loader (data model + `Codec` + `SimpleJsonResourceReloadListener`) registered on `AddReloadListenerEvent`.
+
+## Datapack format
+
+Rules load from `data/<namespace>/item_gates/*.json` across **all** namespaces (directory `item_gates`, handled by `ItemGatingReloadListener`). One file = one rule.
+
+Fields:
+
+- `item` *(required)* — registry id of the gated item, e.g. `"minecraft:diamond_sword"`. Item ids only; tags are not yet supported.
+- `gates` *(optional)* — which actions this rule gates. Any of `"attack"`, `"break"`, `"use"`, `"equip_armor"`, `"equip_curio"`. **Omit to gate all five.**
+- `skills` *(required)* — list of skill requirements. Each entry is `{ "category": <ResourceLocation>, "skill": <string> }`, where `category` is the Pufferfish's Skills category id and `skill` is the skill id within it. **OR semantics: the player passes the rule if they have unlocked *any one* of the listed skills.**
+
+Multiple rules may target the same item — to require different skills per action, write one rule per action. Loaded rules are keyed by item in `ItemGatingRules` (`forItem(Item)` is the read seam the enforcement layer uses).
+
+Example — `data/my_pack/item_gates/diamond_sword.json`:
+
+```json
+{
+  "item": "minecraft:diamond_sword",
+  "gates": ["attack", "break"],
+  "skills": [
+    { "category": "my_skills:combat", "skill": "swordsmanship" },
+    { "category": "my_skills:combat", "skill": "blade_mastery" }
+  ]
+}
+```
+
+## Build & Run
+
+- `./gradlew build` — compile and package the mod jar
+- `./gradlew runClient` — launch a dev client with the mod loaded
+- `./gradlew runServer` — launch a dedicated dev server (`--nogui`)
+- `./gradlew runData` — run data generators (output to `src/generated/resources`)
+- Working/run directory is `run/`.
+
+## Conventions
+
+- **Server-authoritative.** Every gating check needs a `ServerPlayer`; event handlers must skip on the logical client (`level.isClientSide`) and only act on the server.
 
 ---
 

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/nate/.gradle/**)",
+      "Read(//private/tmp/puffish_inspect/**)",
+      "Bash(javap -p net/puffish/skillsmod/api/SkillsAPI.class)",
+      "Bash(javap -p net/puffish/skillsmod/api/Category.class)",
+      "Bash(javap -p net/puffish/skillsmod/api/Skill.class)",
+      "Bash(javap -p 'net/puffish/skillsmod/api/Skill$State.class')",
+      "Bash(ls -dt ~/.claude/projects/*/ 2>/dev/null | head -20; echo \"=== total projects ===\"; ls -d ~/.claude/projects/*/ 2>/dev/null | wc -l; echo \"=== recent jsonl count ===\"; find ~/.claude/projects -name '*.jsonl' -type f 2>/dev/null | wc -l)",
+      "Bash(javap -p net/neoforged/neoforge/event/AddReloadListenerEvent.class)",
+      "Bash(javap -p 'net/neoforged/fml/common/EventBusSubscriber$Bus.class')",
+      "Bash(javap -p net/neoforged/fml/common/EventBusSubscriber.class)",
+      "Bash(./gradlew compileJava --console=plain)",
+      "Bash(cat eula.txt)",
+      "Bash(grep -E 'level-name' server.properties)",
+      "Bash(ls -d world*)",
+      "Read(//private/tmp/**)",
+      "Bash(lsof -nP -iTCP:25599 -sTCP:LISTEN)",
+      "Bash(git restore *)",
+      "Bash(git check-ignore *)",
+      "Bash(unzip -l /Users/nate/.gradle/caches/modules-2/files-2.1/net.puffish/skillsmod/0.17.3+1.21/4e6119010eaad3a571f70b7198422bb1b9d92589/skillsmod-0.17.3+1.21-neoforge.jar)"
+    ]
+  }
+}
