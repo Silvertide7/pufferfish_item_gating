@@ -4,7 +4,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.util.TriState;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.config.ItemGate;
 import net.silvertide.pufferfish_item_gating.enforcement.GateFeedback;
@@ -20,7 +19,6 @@ public final class CuriosCompat {
 
     public static void initialize(IEventBus gameEventBus) {
         gameEventBus.addListener(CuriosCompat::onCurioCanEquip);
-        gameEventBus.addListener(CuriosCompat::onPlayerLoggedIn);
         PufferfishItemGating.LOGGER.info("Curios detected; enforcing the equip_curio gate.");
     }
 
@@ -38,29 +36,32 @@ public final class CuriosCompat {
         }
     }
 
-    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
-            ejectInvalidCurios(player);
-        }
-    }
-
-    private static void ejectInvalidCurios(ServerPlayer player) {
+    public static void ejectInvalidCurios(ServerPlayer player) {
         CuriosApi.getCuriosInventory(player).ifPresent(curiosInventory -> {
             for (ICurioStacksHandler stacksHandler : curiosInventory.getCurios().values()) {
-                IDynamicStackHandler stacks = stacksHandler.getStacks();
-                for (int slot = 0; slot < stacks.getSlots(); slot++) {
-                    ItemStack stack = stacks.getStackInSlot(slot);
-                    if (stack.isEmpty()) {
-                        continue;
-                    }
-                    if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.EQUIP_CURIO)) {
-                        stacks.setStackInSlot(slot, ItemStack.EMPTY);
-                        if (!player.getInventory().add(stack)) {
-                            player.drop(stack, false);
-                        }
-                    }
-                }
+                ejectInvalidStacks(player, stacksHandler.getStacks());
+                ejectInvalidStacks(player, stacksHandler.getCosmeticStacks());
             }
         });
+    }
+
+    private static void ejectInvalidStacks(ServerPlayer player, IDynamicStackHandler stacks) {
+        for (int slot = 0; slot < stacks.getSlots(); slot++) {
+            ItemStack stack = stacks.getStackInSlot(slot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            if (ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.EQUIP_CURIO)) {
+                continue;
+            }
+            ItemStack extracted = stacks.extractItem(slot, stack.getCount(), false);
+            if (extracted.isEmpty()) {
+                continue;
+            }
+            player.getInventory().add(extracted);
+            if (!extracted.isEmpty()) {
+                player.drop(extracted, false);
+            }
+        }
     }
 }

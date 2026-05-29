@@ -24,4 +24,8 @@ public final class GateFeedback {
         lastNotifiedGameTime.put(player.getUUID(), gameTime);
         player.displayClientMessage(Component.translatable("message.pufferfish_item_gating.locked", stack.getHoverName()), true);
     }
+
+    public static void clearForPlayer(UUID uuid) {
+        lastNotifiedGameTime.remove(uuid);
+    }
 }

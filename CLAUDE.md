@@ -15,7 +15,7 @@ Gating rules are **server-authoritative** and defined by datapacks, loaded throu
 - Minecraft 1.21.1 / NeoForge 21.1.230 / Java 21
 - Parchment mappings 2024.11.17 (1.21.1)
 - Hard dependency: Pufferfish's Skills — `net.puffish:skillsmod` (CurseForge `puffish-skills-835091`), mod id `puffish_skills`
-- Planned optional dependency: Curios API — needed only to enforce the curios-equip gate
+- Optional dependency: Curios API (mod id `curios`) — when present, enforces the `equip_curio` gate; compiled against the `:api` artifact only (`compileOnly`)
 
 ## Reading skills (Pufferfish's Skills API)
 
@@ -36,9 +36,18 @@ All skill queries are **server-side** and require a `net.minecraft.server.level.
 
 ## Architecture
 
-- `PufferfishItemGating` — `@Mod` entry point; owns `MODID` and `LOGGER`.
-- `events/EventHandler` — NeoForge game-bus subscribers that enforce the gates (attack, block break, use, equip). Run server-side only.
-- Datapack loader (data model + `Codec` + `SimpleJsonResourceReloadListener`) registered on `AddReloadListenerEvent`.
+- `PufferfishItemGating` — `@Mod` entry point; owns `MODID` and `LOGGER`; wires the skill-event setup and the optional Curios integration on the mod bus.
+- Datapack loader (`config` package: data model + `Codec` + `ItemGatingReloadListener`) registered on `AddReloadListenerEvent`. `ItemGatingRules` holds three coordinated structures: `rulesByItem`, a reverse index `entriesBySkill` (`SkillRequirement → Set<ItemGatePair>`), and `allGatedEntries` (for cache rebuilds).
+- `enforcement/ItemGateEvaluator` — per-player cache of blocked items (`UUID → EnumMap<ItemGate, Set<Item>>`). `isAllowed(player, item, gate)` is two-to-three hash lookups with **no Puffish calls in the hot path**. Built on player join, targeted updates on `Events.SkillUnlock` / `Events.SkillLock` via the reverse index, cleared on logout. **OR** semantics within and across rules — any unlocked skill in any applicable rule lets the action through. Pushes the player's blocked-items map to that player's client via `S2CSyncBlockedItemsPacket` after every build/update.
+- `network/S2CSyncBlockedItemsPacket` + `network/NetworkSetup` — server→client sync of the blocked-items map. Sent on player join and after each `SkillUnlock`/`SkillLock` recompute.
+- `client/ClientBlockedItems` — client-side mirror of the blocked items, populated by the packet handler.
+- `client/ClientGateHandler` — `@EventBusSubscriber(value = Dist.CLIENT)`; cancels `PlayerInteractEvent.RightClickItem` (use — bow draw, shield raise, fishing-rod cast), `PlayerInteractEvent.LeftClickBlock` (break — destroy animation/particles), and `AttackEntityEvent` (attack — swing animation) before MC's client-side prediction can run vanilla `Item.use` / destroy / `Player.attack`. Server-side `VanillaGateHandler` remains authoritative; the client handler just suppresses the misleading animations.
+- `enforcement/GateFeedback` — throttled (~1s per player) action-bar message when a gate blocks an item; entry cleared on logout.
+- `enforcement/Validation` — sweeps a player's worn armor (always) and curios (when Curios is loaded), removing items the player no longer satisfies (queries the cache) and returning them to the inventory. Used by `OnDatapackSyncEvent` (login + `/reload`) and Puffish's `SkillLock` event — moments where multiple slots may flip at once.
+- `events/VanillaGateHandler` — server-side NeoForge listeners enforcing the vanilla gates: `AttackEntityEvent` (attack), `BlockEvent.BreakEvent` (break), `PlayerInteractEvent.RightClickItem` (use), and `LivingEquipmentChangeEvent` (equip_armor). For armor specifically, the eject is *deferred* via `MinecraftServer.execute(...)` so the slot mutation runs at the next tick boundary — *after* `LivingEntity.detectEquipmentUpdates` has captured `lastArmorItemStacks[slot]` correctly. Mutating the slot during the event itself desyncs that tracking and causes alternating equip-success behavior on shift-click. The deferred task re-checks the slot (item may have changed or skill may have been unlocked in the meantime) before ejecting.
+- `events/ValidationEventHandler` — `OnDatapackSyncEvent` builds the cache (and runs `Validation`) for the joining player (login) or every online player (`/reload`). `PlayerLoggedOutEvent` clears that player's cache and feedback throttle entry.
+- `setup/SkillEventsSetup` — `FMLCommonSetupEvent` registers Puffish's `SkillUnlock` (cache update only) and `SkillLock` (cache update plus `Validation`, so newly-blocked worn items eject immediately).
+- `setup/CuriosSetup` + `compat/CuriosCompat` — optional Curios integration (see below).
 
 ## Datapack format
 
@@ -50,7 +59,7 @@ Fields:
 - `gates` *(optional)* — which actions this rule gates. Any of `"attack"`, `"break"`, `"use"`, `"equip_armor"`, `"equip_curio"`. **Omit to gate all five.**
 - `skills` *(required)* — list of skill requirements. Each entry is `{ "category": <ResourceLocation>, "skill": <string> }`, where `category` is the Pufferfish's Skills category id and `skill` is the skill id within it. **OR semantics: the player passes the rule if they have unlocked *any one* of the listed skills.**
 
-Multiple rules may target the same item — to require different skills per action, write one rule per action. Loaded rules are keyed by item in `ItemGatingRules` (`forItem(Item)` is the read seam the enforcement layer uses).
+Multiple rules may target the same item — typically to gate different actions (`gates`). When two or more rules apply to the same `(item, gate)` combination, the player passes if **any one** of them is satisfied (OR across rules, mirroring the OR within a rule). Loaded rules are keyed by item in `ItemGatingRules` (`forItem(Item)` is the read seam the enforcement layer uses).
 
 Example — `data/my_pack/item_gates/diamond_sword.json`:
 
@@ -64,6 +73,18 @@ Example — `data/my_pack/item_gates/diamond_sword.json`:
   ]
 }
 ```
+
+## Curios compatibility (optional)
+
+Curios is a **soft dependency**: `compileOnly` against the `:api` artifact, declared `optional` in `neoforge.mods.toml`. Nothing may touch a Curios class unless Curios is loaded, or the JVM throws `NoClassDefFoundError`.
+
+- All Curios-referencing code lives in `compat/CuriosCompat`, which is **not** `@EventBusSubscriber`-annotated (that would classload it unconditionally).
+- `setup/CuriosSetup#init` (an `FMLCommonSetupEvent` listener registered from the mod constructor) guards with `ModList.get().isLoaded("curios")`, then calls `CuriosCompat.initialize(NeoForge.EVENT_BUS)`. Lazy classloading means `CuriosCompat` and its Curios imports link only inside that branch.
+
+What it enforces:
+
+- `CurioCanEquipEvent` — if the wearer is a `ServerPlayer` who fails the `equip_curio` gate, `setEquipResult(TriState.FALSE)` blocks the equip (and `GateFeedback` shows a throttled message).
+- `ejectInvalidCurios(ServerPlayer)` is called externally by `enforcement/Validation`. Its triggers — `OnDatapackSyncEvent` (login + `/reload`) and Puffish's `SkillLock` (in-session respec) — live in `events/ValidationEventHandler` and `setup/SkillEventsSetup` respectively, so this compat module stays focused on Curios-only logic.
 
 ## Build & Run
 
@@ -105,3 +126,7 @@ When asked to review code, do a "pass", check for issues, or otherwise audit a r
 2. **Then spawn an independent reviewer** via the `/code-review` skill or a fresh agent. Give it only the diff and the goal, no context about why you made the choices you did. That catches the bugs you would otherwise rationalize away.
 
 Don't skip step 2 because step 1 looked clean — the value of the independent reviewer is exactly that it doesn't share your blind spots.
+
+## Version Control
+
+**The user handles commits in git.** Never run `git add`, `git commit`, or `git push` — and don't suggest doing so — unless the user explicitly asks. Wrap up work by reporting what changed; staging and pushing are the user's job.
