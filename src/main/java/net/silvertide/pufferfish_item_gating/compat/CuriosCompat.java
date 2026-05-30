@@ -26,7 +26,7 @@ public final class CuriosCompat {
         if (event.getEquipResult() == TriState.FALSE) {
             return;
         }
-        if (!(event.getEntity() instanceof ServerPlayer player)) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative()) {
             return;
         }
         ItemStack stack = event.getStack();
