@@ -15,6 +15,14 @@ import java.util.Map;
 import java.util.Set;
 
 public record S2CSyncBlockedItemsPacket(Map<ItemGate, Set<Item>> blockedByGate) implements CustomPacketPayload {
+    public S2CSyncBlockedItemsPacket {
+        EnumMap<ItemGate, Set<Item>> snapshot = new EnumMap<>(ItemGate.class);
+        for (Map.Entry<ItemGate, Set<Item>> entry : blockedByGate.entrySet()) {
+            snapshot.put(entry.getKey(), Set.copyOf(entry.getValue()));
+        }
+        blockedByGate = snapshot;
+    }
+
     public static final CustomPacketPayload.Type<S2CSyncBlockedItemsPacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(PufferfishItemGating.MODID, "sync_blocked_items"));
 

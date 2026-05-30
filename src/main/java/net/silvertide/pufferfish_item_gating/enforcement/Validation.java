@@ -12,6 +12,9 @@ public final class Validation {
     }
 
     public static void validatePlayer(ServerPlayer player) {
+        if (player.isCreative()) {
+            return;
+        }
         validateArmor(player);
         if (ModList.get().isLoaded("curios")) {
             net.silvertide.pufferfish_item_gating.compat.CuriosCompat.ejectInvalidCurios(player);

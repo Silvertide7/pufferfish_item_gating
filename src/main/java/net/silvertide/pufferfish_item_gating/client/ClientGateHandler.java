@@ -16,6 +16,9 @@ public final class ClientGateHandler {
 
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        if (event.getEntity().isCreative()) {
+            return;
+        }
         ItemStack stack = event.getItemStack();
         if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.USE)) {
             event.setCanceled(true);
@@ -24,6 +27,9 @@ public final class ClientGateHandler {
 
     @SubscribeEvent
     public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+        if (event.getEntity().isCreative()) {
+            return;
+        }
         ItemStack stack = event.getItemStack();
         if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.BREAK)) {
             event.setCanceled(true);
@@ -32,6 +38,9 @@ public final class ClientGateHandler {
 
     @SubscribeEvent
     public static void onAttackEntity(AttackEntityEvent event) {
+        if (event.getEntity().isCreative()) {
+            return;
+        }
         ItemStack stack = event.getEntity().getMainHandItem();
         if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.ATTACK)) {
             event.setCanceled(true);

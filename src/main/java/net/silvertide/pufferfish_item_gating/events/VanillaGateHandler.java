@@ -1,7 +1,6 @@
 package net.silvertide.pufferfish_item_gating.events;
 
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -11,6 +10,7 @@ import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.config.ItemGate;
 import net.silvertide.pufferfish_item_gating.enforcement.GateFeedback;
@@ -18,6 +18,7 @@ import net.silvertide.pufferfish_item_gating.enforcement.ItemGateEvaluator;
 
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,7 +35,7 @@ public final class VanillaGateHandler {
 
     @SubscribeEvent
     public static void onAttackEntity(AttackEntityEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative()) {
             return;
         }
         ItemStack stack = player.getMainHandItem();
@@ -46,7 +47,7 @@ public final class VanillaGateHandler {
 
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
-        if (!(event.getPlayer() instanceof ServerPlayer player)) {
+        if (!(event.getPlayer() instanceof ServerPlayer player) || player.isCreative()) {
             return;
         }
         ItemStack stack = player.getMainHandItem();
@@ -58,7 +59,7 @@ public final class VanillaGateHandler {
 
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative()) {
             return;
         }
         ItemStack stack = event.getItemStack();
@@ -70,7 +71,7 @@ public final class VanillaGateHandler {
 
     @SubscribeEvent
     public static void onLivingEquipmentChange(LivingEquipmentChangeEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative()) {
             return;
         }
         EquipmentSlot slot = event.getSlot();
@@ -87,23 +88,33 @@ public final class VanillaGateHandler {
         if (ItemGateEvaluator.isAllowed(player, newStack.getItem(), ItemGate.EQUIP_ARMOR)) {
             return;
         }
-        MinecraftServer server = player.getServer();
-        if (server == null) {
-            return;
-        }
         EnumSet<EquipmentSlot> pending = pendingArmorEjects.computeIfAbsent(player.getUUID(), key -> EnumSet.noneOf(EquipmentSlot.class));
-        if (!pending.add(slot)) {
+        pending.add(slot);
+    }
+
+    @SubscribeEvent
+    public static void onServerPreTick(ServerTickEvent.Pre event) {
+        if (pendingArmorEjects.isEmpty()) {
             return;
         }
-        server.tell(new TickTask(server.getTickCount() + 1, () -> ejectIfStillBlocked(player, slot)));
+        MinecraftServer server = event.getServer();
+        Iterator<Map.Entry<UUID, EnumSet<EquipmentSlot>>> playerIt = pendingArmorEjects.entrySet().iterator();
+        while (playerIt.hasNext()) {
+            Map.Entry<UUID, EnumSet<EquipmentSlot>> entry = playerIt.next();
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null) {
+                playerIt.remove();
+                continue;
+            }
+            for (EquipmentSlot slot : entry.getValue()) {
+                ejectIfStillBlocked(player, slot);
+            }
+            playerIt.remove();
+        }
     }
 
     private static void ejectIfStillBlocked(ServerPlayer player, EquipmentSlot slot) {
-        EnumSet<EquipmentSlot> pending = pendingArmorEjects.get(player.getUUID());
-        if (pending != null) {
-            pending.remove(slot);
-        }
-        if (player.isRemoved()) {
+        if (player.isRemoved() || player.isCreative()) {
             return;
         }
         ItemStack inSlot = player.getItemBySlot(slot);
