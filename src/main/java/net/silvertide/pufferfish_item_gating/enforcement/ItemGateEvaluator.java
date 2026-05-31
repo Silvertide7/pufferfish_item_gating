@@ -6,6 +6,7 @@ import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.puffish.skillsmod.api.Skill;
 import net.puffish.skillsmod.api.SkillsAPI;
+import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.config.ItemGate;
 import net.silvertide.pufferfish_item_gating.config.ItemGatePair;
 import net.silvertide.pufferfish_item_gating.config.ItemGatingRule;
@@ -19,9 +20,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class ItemGateEvaluator {
     private static final Map<UUID, EnumMap<ItemGate, Set<Item>>> blockedByPlayer = new HashMap<>();
+    private static final Set<SkillRequirement> warnedMissingSkills = ConcurrentHashMap.newKeySet();
 
     private ItemGateEvaluator() {
     }
@@ -50,6 +53,10 @@ public final class ItemGateEvaluator {
         blockedByPlayer.remove(uuid);
     }
 
+    public static void onRulesReloaded() {
+        warnedMissingSkills.clear();
+    }
+
     public static void onSkillUnlock(ServerPlayer player, ResourceLocation category, String skillId) {
         recomputeAffected(player, new SkillRequirement(category, skillId));
     }
@@ -63,7 +70,10 @@ public final class ItemGateEvaluator {
         if (affected.isEmpty()) {
             return;
         }
-        EnumMap<ItemGate, Set<Item>> playerBlocked = blockedByPlayer.computeIfAbsent(player.getUUID(), key -> new EnumMap<>(ItemGate.class));
+        EnumMap<ItemGate, Set<Item>> playerBlocked = blockedByPlayer.get(player.getUUID());
+        if (playerBlocked == null) {
+            return;
+        }
         for (ItemGatePair pair : affected) {
             boolean allowed = evaluateFromScratch(player, pair.item(), pair.gate());
             Set<Item> gateBlocked = playerBlocked.get(pair.gate());
@@ -92,12 +102,34 @@ public final class ItemGateEvaluator {
             if (!rule.gates().contains(gate)) {
                 continue;
             }
+            if (!isRuleEnforceable(rule)) {
+                continue;
+            }
             hasApplicableRule = true;
             if (satisfiesRule(player, rule)) {
                 return true;
             }
         }
         return !hasApplicableRule;
+    }
+
+    private static boolean isRuleEnforceable(ItemGatingRule rule) {
+        if (SkillsAPI.streamCategories().findAny().isEmpty()) {
+            return true;
+        }
+        for (SkillRequirement requirement : rule.requiredSkills()) {
+            if (SkillsAPI.getCategory(requirement.category())
+                    .flatMap(category -> category.getSkill(requirement.skill()))
+                    .isEmpty()) {
+                if (warnedMissingSkills.add(requirement)) {
+                    PufferfishItemGating.LOGGER.warn(
+                            "Item gating rule(s) reference unknown skill '{}/{}'; those rules will be ignored",
+                            requirement.category(), requirement.skill());
+                }
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean satisfiesRule(ServerPlayer player, ItemGatingRule rule) {

@@ -1,6 +1,7 @@
 package net.silvertide.pufferfish_item_gating.events;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
@@ -15,7 +16,7 @@ public final class ValidationEventHandler {
     private ValidationEventHandler() {
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOW)
     public static void onDatapackSync(OnDatapackSyncEvent event) {
         event.getRelevantPlayers().forEach(player -> {
             ItemGateEvaluator.buildForPlayer(player);

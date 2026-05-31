@@ -22,6 +22,7 @@ public final class ClientGateHandler {
         ItemStack stack = event.getItemStack();
         if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.USE)) {
             event.setCanceled(true);
+            ClientGateFeedback.notifyLocked(event.getEntity(), stack);
         }
     }
 
@@ -33,6 +34,7 @@ public final class ClientGateHandler {
         ItemStack stack = event.getItemStack();
         if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.BREAK)) {
             event.setCanceled(true);
+            ClientGateFeedback.notifyLocked(event.getEntity(), stack);
         }
     }
 
@@ -44,6 +46,7 @@ public final class ClientGateHandler {
         ItemStack stack = event.getEntity().getMainHandItem();
         if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.ATTACK)) {
             event.setCanceled(true);
+            ClientGateFeedback.notifyLocked(event.getEntity(), stack);
         }
     }
 }

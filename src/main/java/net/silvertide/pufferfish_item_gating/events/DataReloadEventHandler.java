@@ -7,7 +7,9 @@ import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.config.ItemGatingReloadListener;
 
 @EventBusSubscriber(modid = PufferfishItemGating.MODID)
-public class DataReloadEventHandler {
+public final class DataReloadEventHandler {
+    private DataReloadEventHandler() {
+    }
 
     @SubscribeEvent
     public static void onAddReloadListeners(AddReloadListenerEvent event) {

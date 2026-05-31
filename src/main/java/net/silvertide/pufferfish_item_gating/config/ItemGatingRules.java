@@ -7,9 +7,12 @@ import java.util.Map;
 import java.util.Set;
 
 public final class ItemGatingRules {
-    private static volatile Map<Item, List<ItemGatingRule>> rulesByItem = Map.of();
-    private static volatile Map<SkillRequirement, Set<ItemGatePair>> entriesBySkill = Map.of();
-    private static volatile Set<ItemGatePair> allGatedEntries = Set.of();
+    private record Tables(Map<Item, List<ItemGatingRule>> rulesByItem,
+                          Map<SkillRequirement, Set<ItemGatePair>> entriesBySkill,
+                          Set<ItemGatePair> allGatedEntries) {
+    }
+
+    private static volatile Tables tables = new Tables(Map.of(), Map.of(), Set.of());
 
     private ItemGatingRules() {
     }
@@ -17,20 +20,18 @@ public final class ItemGatingRules {
     public static void replaceAll(Map<Item, List<ItemGatingRule>> rulesByItem,
                                   Map<SkillRequirement, Set<ItemGatePair>> entriesBySkill,
                                   Set<ItemGatePair> allGatedEntries) {
-        ItemGatingRules.rulesByItem = rulesByItem;
-        ItemGatingRules.entriesBySkill = entriesBySkill;
-        ItemGatingRules.allGatedEntries = allGatedEntries;
+        tables = new Tables(rulesByItem, entriesBySkill, allGatedEntries);
     }
 
     public static List<ItemGatingRule> forItem(Item item) {
-        return rulesByItem.getOrDefault(item, List.of());
+        return tables.rulesByItem.getOrDefault(item, List.of());
     }
 
     public static Set<ItemGatePair> forSkill(SkillRequirement requirement) {
-        return entriesBySkill.getOrDefault(requirement, Set.of());
+        return tables.entriesBySkill.getOrDefault(requirement, Set.of());
     }
 
     public static Set<ItemGatePair> allGatedEntries() {
-        return allGatedEntries;
+        return tables.allGatedEntries;
     }
 }

@@ -79,7 +79,13 @@
       "Bash(grep -nA20 'protected boolean shouldRun\\(net.minecraft.server.TickTask\\)')",
       "Bash(grep -nA15 'protected.*wrapRunnable.*TickTask\\\\|protected.*TickTask.*wrapRunnable')",
       "Bash(javap -p net/minecraft/server/TickTask.class)",
-      "Bash(./gradlew compileJava)"
+      "Bash(./gradlew compileJava)",
+      "Bash(javap -p -c -classpath . net.puffish.skillsmod.SkillsMod)",
+      "Bash(javap -p net.puffish.skillsmod.util.Event)",
+      "Bash(xargs javap -p)",
+      "Bash(javap -p -c net.puffish.skillsmod.SkillsMod)",
+      "Bash(javap -p net.puffish.skillsmod.api.SkillsAPI)",
+      "Bash(javap -p net.puffish.skillsmod.main.NeoForgeMain)"
     ]
   }
 }

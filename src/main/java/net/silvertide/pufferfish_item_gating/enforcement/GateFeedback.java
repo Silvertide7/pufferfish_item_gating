@@ -4,13 +4,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 public final class GateFeedback {
     private static final long NOTIFY_COOLDOWN_TICKS = 20L;
-    private static final Map<UUID, Long> lastNotifiedGameTime = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> lastNotifiedGameTime = new HashMap<>();
 
     private GateFeedback() {
     }
