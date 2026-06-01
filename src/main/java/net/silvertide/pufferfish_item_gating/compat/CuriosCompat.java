@@ -26,13 +26,13 @@ public final class CuriosCompat {
         if (event.getEquipResult() == TriState.FALSE) {
             return;
         }
-        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative()) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative() || player.isSpectator()) {
             return;
         }
         ItemStack stack = event.getStack();
         if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.EQUIP_CURIO)) {
             event.setEquipResult(TriState.FALSE);
-            GateFeedback.notifyLocked(player, stack);
+            GateFeedback.notifyLocked(player, ItemGate.EQUIP_CURIO, stack.getHoverName());
         }
     }
 

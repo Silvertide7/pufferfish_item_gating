@@ -1,3 +1,4 @@
 {
-  "message.pufferfish_item_gating.locked": "You haven't unlocked the skill to use %s."
+  "message.pufferfish_item_gating.locked": "You haven't unlocked the skill to use %s.",
+  "message.pufferfish_item_gating.interact_locked": "You haven't unlocked the skill to interact with %s."
 }

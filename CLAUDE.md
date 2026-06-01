@@ -1,12 +1,10 @@
 # Pufferfish Item Gating
 
-A NeoForge **1.21.1** mod (Java 21, NeoForge 21.1.230) that gates item usage behind player skills from **Pufferfish's Skills** (`puffish_skills`). When a player has not unlocked the required skill(s), the mod prevents them from using a gated item to:
+A NeoForge **1.21.1** mod (Java 21, NeoForge 21.1.230) that gates usage behind player skills from **Pufferfish's Skills** (`puffish_skills`). A rule can target an item, a block, or an entity type. When a player has not unlocked the required skill(s):
 
-- deal damage to entities
-- break blocks
-- use it (right-click — e.g. draw a bow, cast a fishing rod, raise a shield)
-- equip it as armor
-- equip it as a Curios accessory
+- **Item targets** can block: damaging entities (`attack`), breaking blocks (`break`), right-clicking the item (`use` — bow draw, shield raise, fishing-rod cast), equipping as armor (`equip_armor`), or equipping as a Curios accessory (`equip_curio`).
+- **Block targets** can block: right-clicking the block (`interact` — opening a crafting table, lever, door, etc.).
+- **Entity targets** can block: right-clicking the entity (`interact` — trading with a villager, mounting a boat, saddling a horse, etc.).
 
 Gating rules are **server-authoritative** and defined by datapacks, loaded through a `SimpleJsonResourceReloadListener` so packs can add or override rules without code changes.
 
@@ -39,14 +37,15 @@ All skill queries are **server-side** and require a `net.minecraft.server.level.
 ## Architecture
 
 - `PufferfishItemGating` — `@Mod` entry point; owns `MODID` and `LOGGER`; wires the skill-event setup and the optional Curios integration on the mod bus.
-- Datapack loader (`config` package: data model + `Codec` + `ItemGatingReloadListener`) registered on `AddReloadListenerEvent`. `ItemGatingRules` holds three coordinated structures: `rulesByItem`, a reverse index `entriesBySkill` (`SkillRequirement → Set<ItemGatePair>`), and `allGatedEntries` (for cache rebuilds).
-- `enforcement/ItemGateEvaluator` — per-player cache of blocked items (`UUID → EnumMap<ItemGate, Set<Item>>`). `isAllowed(player, item, gate)` is two-to-three hash lookups with **no Puffish calls in the hot path**. Built on player join, targeted updates on `Events.SkillUnlock` / `Events.SkillLock` via the reverse index, cleared on logout. **OR** semantics within and across rules — any unlocked skill in any applicable rule lets the action through. Pushes the player's blocked-items map to that player's client via `S2CSyncBlockedItemsPacket` after every build/update.
-- `network/S2CSyncBlockedItemsPacket` + `network/NetworkSetup` — server→client sync of the blocked-items map. Sent on player join and after each `SkillUnlock`/`SkillLock` recompute. The record's compact constructor deep-copies the map (with `Set.copyOf` per inner set) so the packet carries a snapshot; respec fires `SkillLock` rapidly and the Netty IO thread encodes earlier packets while the server thread is still mutating the live cache — without the snapshot the inner `HashSet` iteration races and throws `ConcurrentModificationException`.
-- `client/ClientBlockedItems` — client-side mirror of the blocked items, populated by the packet handler.
-- `client/ClientGateHandler` — `@EventBusSubscriber(value = Dist.CLIENT)`; cancels `PlayerInteractEvent.RightClickItem` (use — bow draw, shield raise, fishing-rod cast), `PlayerInteractEvent.LeftClickBlock` (break — destroy animation/particles), and `AttackEntityEvent` (attack — swing animation) before MC's client-side prediction can run vanilla `Item.use` / destroy / `Player.attack`. Server-side `VanillaGateHandler` remains authoritative; the client handler just suppresses the misleading animations.
-- `enforcement/GateFeedback` — throttled (~1s per player) action-bar message when a gate blocks an item; entry cleared on logout.
-- `enforcement/Validation` — sweeps a player's worn armor (always) and curios (when Curios is loaded), removing items the player no longer satisfies (queries the cache) and returning them to the inventory. Used by `OnDatapackSyncEvent` (login + `/reload`) and Puffish's `SkillLock` event — moments where multiple slots may flip at once.
-- `events/VanillaGateHandler` — server-side NeoForge listeners enforcing the vanilla gates: `AttackEntityEvent` (attack), `BlockEvent.BreakEvent` (break), `PlayerInteractEvent.RightClickItem` (use), and `LivingEquipmentChangeEvent` (equip_armor). For armor specifically, the eject is *deferred* to the next tick's `ServerTickEvent.Pre` so the slot mutation runs *after* `LivingEntity.detectEquipmentUpdates` has captured `lastArmorItemStacks[slot]` correctly. Mutating the slot during the event itself desyncs that tracking and causes alternating equip-success behavior on shift-click. `MinecraftServer.tell(new TickTask(...))` looks like it would work but `shouldRun` falls through to `haveTime()` and runs the task in the same tick whenever the server isn't lagging — `ServerTickEvent.Pre` is the only reliable way to defer to a future tick. The deferred task re-checks the slot (item may have changed or skill may have been unlocked in the meantime) before ejecting.
+- `config/GateTarget` — sealed interface with three records: `ItemTarget(Item)`, `BlockTarget(Block)`, `EntityTypeTarget(EntityType<?>)`. Records auto-generate `equals`/`hashCode` so `Set<GateTarget>` holds all three kinds without collision (an `ItemTarget(crafting_table)` is not equal to a `BlockTarget(crafting_table)` because the record types differ). Static `writeTo` / `readFrom` helpers encode the target on the wire as `(byte kind, ResourceLocation id)` with kind 0=item, 1=block, 2=entity; unknown registry ids return `Optional.empty` instead of falling back to `AIR`/`PIG`.
+- Datapack loader (`config` package: data model + `Codec` + `ItemGatingReloadListener`) registered on `AddReloadListenerEvent`. `ItemGatingRules` holds five coordinated structures: `rulesByItem`, `rulesByBlock`, `rulesByEntityType`, a reverse index `entriesBySkill` (`SkillRequirement → Set<GatePair>`), and `allGatedEntries` (for cache rebuilds). The rule codec accepts exactly one of `item` / `block` / `entity` fields and validates gate-target compatibility (`interact` is only valid on block/entity, the rest only on item) — mismatches are logged + the rule skipped.
+- `enforcement/ItemGateEvaluator` — per-player cache of blocked targets (`UUID → EnumMap<ItemGate, Set<GateTarget>>`). `isAllowed(player, target, gate)` is two-to-three hash lookups with **no Puffish calls in the hot path**. Overloads accept `Item`, `Block`, or `EntityType<?>` for ergonomics. Built on player join, targeted updates on `Events.SkillUnlock` / `Events.SkillLock` via the reverse index, cleared on logout. **OR** semantics within and across rules — any unlocked skill in any applicable rule lets the action through. Pushes the player's blocked map to the client via `S2CSyncBlockedItemsPacket` after every build/update.
+- `network/S2CSyncBlockedItemsPacket` + `network/NetworkSetup` — server→client sync of the blocked map. Sent on player join and after each `SkillUnlock`/`SkillLock` recompute. The record's compact constructor deep-copies the map (with `Set.copyOf` per inner set) so the packet carries a snapshot; respec fires `SkillLock` rapidly and the Netty IO thread encodes earlier packets while the server thread is still mutating the live cache — without the snapshot the inner `HashSet` iteration races and throws `ConcurrentModificationException`. Wire format: per gate, a list of `(kind:byte, registryId:ResourceLocation)` entries.
+- `client/ClientBlocked` — client-side mirror of the blocked map, populated by the packet handler. Same shape as the server-side cache.
+- `client/ClientGateHandler` — `@EventBusSubscriber(value = Dist.CLIENT)`. Cancels `PlayerInteractEvent.RightClickItem` (use), `PlayerInteractEvent.LeftClickBlock` (break), `AttackEntityEvent` (attack), `PlayerInteractEvent.RightClickBlock` (interact on block — full `setCanceled(true)` so block placement is also denied when the targeted block is gated), `PlayerInteractEvent.EntityInteract` (interact on entity), and `PlayerInteractEvent.EntityInteractSpecific` (covers `interactAt` paths like saddling horses or equipping armor stands). Server-side `VanillaGateHandler` remains authoritative; the client handler just suppresses the misleading animations and shows the action-bar feedback.
+- `enforcement/GateFeedback` — throttled (~1s per player) action-bar message when a gate blocks an action. Takes the `ItemGate` plus a `Component` for the name; the gate selects the translation key (`...locked` for item gates, `...interact_locked` for the `INTERACT` gate so the message reads "interact with X" rather than "use X"). Callers pass `stack.getHoverName()` / `block.getName()` / `type.getDescription()`. Entry cleared on logout.
+- `enforcement/Validation` — sweeps a player's worn armor (always) and curios (when Curios is loaded), removing items the player no longer satisfies (queries the cache) and returning them to the inventory. Used by `OnDatapackSyncEvent` (login + `/reload`) and Puffish's `SkillLock` event — moments where multiple slots may flip at once. `interact` is session-only and has no persistent state, so validation doesn't touch it.
+- `events/VanillaGateHandler` — server-side NeoForge listeners. `AttackEntityEvent` / `BlockEvent.BreakEvent` / `PlayerInteractEvent.RightClickItem` for the original item gates. `PlayerInteractEvent.RightClickBlock` (full `setCanceled(true)` — denies both `Block#use` and `Item#useOn` so the player can't place an item-in-hand onto a gated block either; the handler skips when `player.isShiftKeyDown()` so sneak+right-click falls through to vanilla's behavior, which is how players can still place items adjacent to gated blocks). `PlayerInteractEvent.EntityInteract`, and `PlayerInteractEvent.EntityInteractSpecific` for the `interact` gate (entity gates do not honor sneak — there's no equivalent vanilla bypass). `LivingEquipmentChangeEvent` for `equip_armor`. All handlers skip creative and spectator players (operators can `/give` themselves anything anyway, and creative's separate slot-sync protocol breaks the deferred armor eject). For armor specifically, the eject is *deferred* to the next tick's `ServerTickEvent.Pre` so the slot mutation runs *after* `LivingEntity.detectEquipmentUpdates` has captured `lastArmorItemStacks[slot]` correctly. Mutating the slot during the event itself desyncs that tracking and causes alternating equip-success behavior on shift-click. `MinecraftServer.tell(new TickTask(...))` looks like it would work but `shouldRun` falls through to `haveTime()` and runs the task in the same tick whenever the server isn't lagging — `ServerTickEvent.Pre` is the only reliable way to defer to a future tick. The deferred task re-checks the slot (item may have changed or skill may have been unlocked in the meantime) before ejecting.
 - `events/ValidationEventHandler` — `OnDatapackSyncEvent` builds the cache (and runs `Validation`) for the joining player (login) or every online player (`/reload`). `PlayerLoggedOutEvent` clears that player's cache and feedback throttle entry.
 - `setup/SkillEventsSetup` — `FMLCommonSetupEvent` registers Puffish's `SkillUnlock` (cache update only) and `SkillLock` (cache update plus `Validation`, so newly-blocked worn items eject immediately).
 - `setup/CuriosSetup` + `compat/CuriosCompat` — optional Curios integration (see below).
@@ -57,15 +56,21 @@ Rules load from `data/<namespace>/item_gates/*.json` across **all** namespaces (
 
 Fields:
 
-- `item` *(required)* — registry id of the gated item, e.g. `"minecraft:diamond_sword"`. Item ids only; tags are not yet supported.
-- `gates` *(optional)* — which actions this rule gates. Any of `"attack"`, `"break"`, `"use"`, `"equip_armor"`, `"equip_curio"`. **Omit to gate all five.**
+- Exactly one of:
+  - `item` — registry id of a gated item, e.g. `"minecraft:diamond_sword"`. Valid gates: `attack`, `break`, `use`, `equip_armor`, `equip_curio`.
+  - `block` — registry id of a gated block, e.g. `"minecraft:crafting_table"`. Valid gate: `interact`.
+  - `entity` — registry id of a gated entity type, e.g. `"minecraft:villager"`. Valid gate: `interact`.
+- `gates` *(optional)* — which actions this rule gates. **Omit to gate the default set for the target type:** all five item gates for `item` targets, `[interact]` for `block` and `entity` targets. Gate/target combinations that don't make sense (e.g., `attack` on a block) cause the rule to be skipped with a warn log.
 - `skills` *(required)* — list of skill requirements. Each entry is `{ "category": <ResourceLocation>, "skill": <string> }`, where `category` is the Pufferfish's Skills category id and `skill` is the skill id within it. **OR semantics: the player passes the rule if they have unlocked *any one* of the listed skills.**
 
-Multiple rules may target the same item — typically to gate different actions (`gates`). When two or more rules apply to the same `(item, gate)` combination, the player passes if **any one** of them is satisfied (OR across rules, mirroring the OR within a rule). Loaded rules are keyed by item in `ItemGatingRules` (`forItem(Item)` is the read seam the enforcement layer uses).
+The `interact` gate keys on the *Block* (or *EntityType*) — not the BlockState — so different states of the same block (powered/unpowered, water level, etc.) share gating. Same for entity types: a baby vs. adult villager share their gate.
 
-Example — `data/my_pack/item_gates/diamond_sword.json`:
+Multiple rules may target the same item, block, or entity — typically to gate different actions (`gates`). When two or more rules apply to the same `(target, gate)` combination, the player passes if **any one** of them is satisfied (OR across rules, mirroring the OR within a rule).
+
+Examples:
 
 ```json
+// data/my_pack/item_gates/diamond_sword.json
 {
   "item": "minecraft:diamond_sword",
   "gates": ["attack", "break"],
@@ -74,7 +79,24 @@ Example — `data/my_pack/item_gates/diamond_sword.json`:
     { "category": "my_skills:combat", "skill": "blade_mastery" }
   ]
 }
+
+// data/my_pack/item_gates/crafting_table.json
+{
+  "block": "minecraft:crafting_table",
+  "skills": [
+    { "category": "my_skills:crafting", "skill": "basic_crafting" }
+  ]
+}
+
+// data/my_pack/item_gates/villager.json
+{
+  "entity": "minecraft:villager",
+  "skills": [
+    { "category": "my_skills:social", "skill": "trading" }
+  ]
+}
 ```
+
 
 ## Curios compatibility (optional)
 

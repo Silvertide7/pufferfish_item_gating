@@ -2,8 +2,10 @@ package net.silvertide.pufferfish_item_gating.events;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
@@ -35,43 +37,82 @@ public final class VanillaGateHandler {
 
     @SubscribeEvent
     public static void onAttackEntity(AttackEntityEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative()) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative() || player.isSpectator()) {
             return;
         }
         ItemStack stack = player.getMainHandItem();
         if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.ATTACK)) {
             event.setCanceled(true);
-            GateFeedback.notifyLocked(player, stack);
+            GateFeedback.notifyLocked(player, ItemGate.ATTACK, stack.getHoverName());
         }
     }
 
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
-        if (!(event.getPlayer() instanceof ServerPlayer player) || player.isCreative()) {
+        if (!(event.getPlayer() instanceof ServerPlayer player) || player.isCreative() || player.isSpectator()) {
             return;
         }
         ItemStack stack = player.getMainHandItem();
         if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.BREAK)) {
             event.setCanceled(true);
-            GateFeedback.notifyLocked(player, stack);
+            GateFeedback.notifyLocked(player, ItemGate.BREAK, stack.getHoverName());
         }
     }
 
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative()) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative() || player.isSpectator()) {
             return;
         }
         ItemStack stack = event.getItemStack();
         if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.USE)) {
             event.setCanceled(true);
-            GateFeedback.notifyLocked(player, stack);
+            GateFeedback.notifyLocked(player, ItemGate.USE, stack.getHoverName());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative() || player.isSpectator()) {
+            return;
+        }
+        if (player.isShiftKeyDown()) {
+            return;
+        }
+        Block block = event.getLevel().getBlockState(event.getPos()).getBlock();
+        if (!ItemGateEvaluator.isAllowed(player, block, ItemGate.INTERACT)) {
+            event.setCanceled(true);
+            GateFeedback.notifyLocked(player, ItemGate.INTERACT, block.getName());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative() || player.isSpectator()) {
+            return;
+        }
+        EntityType<?> type = event.getTarget().getType();
+        if (!ItemGateEvaluator.isAllowed(player, type, ItemGate.INTERACT)) {
+            event.setCanceled(true);
+            GateFeedback.notifyLocked(player, ItemGate.INTERACT, type.getDescription());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative() || player.isSpectator()) {
+            return;
+        }
+        EntityType<?> type = event.getTarget().getType();
+        if (!ItemGateEvaluator.isAllowed(player, type, ItemGate.INTERACT)) {
+            event.setCanceled(true);
+            GateFeedback.notifyLocked(player, ItemGate.INTERACT, type.getDescription());
         }
     }
 
     @SubscribeEvent
     public static void onLivingEquipmentChange(LivingEquipmentChangeEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative()) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.isCreative() || player.isSpectator()) {
             return;
         }
         EquipmentSlot slot = event.getSlot();
@@ -114,7 +155,7 @@ public final class VanillaGateHandler {
     }
 
     private static void ejectIfStillBlocked(ServerPlayer player, EquipmentSlot slot) {
-        if (player.isRemoved() || player.isCreative()) {
+        if (player.isRemoved() || player.isCreative() || player.isSpectator()) {
             return;
         }
         ItemStack inSlot = player.getItemBySlot(slot);
@@ -126,7 +167,7 @@ public final class VanillaGateHandler {
         }
         ItemStack ejected = inSlot.copy();
         player.setItemSlot(slot, ItemStack.EMPTY);
-        GateFeedback.notifyLocked(player, ejected);
+        GateFeedback.notifyLocked(player, ItemGate.EQUIP_ARMOR, ejected.getHoverName());
         player.getInventory().add(ejected);
         if (!ejected.isEmpty()) {
             player.drop(ejected, false);

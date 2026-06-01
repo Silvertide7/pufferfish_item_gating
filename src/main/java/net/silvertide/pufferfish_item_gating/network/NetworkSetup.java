@@ -2,7 +2,7 @@ package net.silvertide.pufferfish_item_gating.network;
 
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import net.silvertide.pufferfish_item_gating.client.ClientBlockedItems;
+import net.silvertide.pufferfish_item_gating.client.ClientBlocked;
 
 public final class NetworkSetup {
     private NetworkSetup() {
@@ -13,7 +13,7 @@ public final class NetworkSetup {
         registrar.playToClient(
                 S2CSyncBlockedItemsPacket.TYPE,
                 S2CSyncBlockedItemsPacket.STREAM_CODEC,
-                (payload, context) -> context.enqueueWork(() -> ClientBlockedItems.replaceAll(payload.blockedByGate()))
+                (payload, context) -> context.enqueueWork(() -> ClientBlocked.replaceAll(payload.blockedByGate()))
         );
     }
 }

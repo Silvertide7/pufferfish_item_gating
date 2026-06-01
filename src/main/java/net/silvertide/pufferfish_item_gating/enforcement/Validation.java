@@ -11,7 +11,7 @@ public final class Validation {
     }
 
     public static void validatePlayer(ServerPlayer player) {
-        if (player.isCreative()) {
+        if (player.isCreative() || player.isSpectator()) {
             return;
         }
         validateArmor(player);
@@ -34,7 +34,7 @@ public final class Validation {
             }
             ItemStack ejected = inSlot.copy();
             player.setItemSlot(slot, ItemStack.EMPTY);
-            GateFeedback.notifyLocked(player, ejected);
+            GateFeedback.notifyLocked(player, ItemGate.EQUIP_ARMOR, ejected.getHoverName());
             player.getInventory().add(ejected);
             if (!ejected.isEmpty()) {
                 player.drop(ejected, false);

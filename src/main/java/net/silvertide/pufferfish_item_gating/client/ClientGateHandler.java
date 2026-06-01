@@ -1,6 +1,8 @@
 package net.silvertide.pufferfish_item_gating.client;
 
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -16,37 +18,76 @@ public final class ClientGateHandler {
 
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        if (event.getEntity().isCreative()) {
+        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
             return;
         }
         ItemStack stack = event.getItemStack();
-        if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.USE)) {
+        if (!ClientBlocked.isAllowed(stack.getItem(), ItemGate.USE)) {
             event.setCanceled(true);
-            ClientGateFeedback.notifyLocked(event.getEntity(), stack);
+            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.USE, stack.getHoverName());
         }
     }
 
     @SubscribeEvent
     public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
-        if (event.getEntity().isCreative()) {
+        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
             return;
         }
         ItemStack stack = event.getItemStack();
-        if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.BREAK)) {
+        if (!ClientBlocked.isAllowed(stack.getItem(), ItemGate.BREAK)) {
             event.setCanceled(true);
-            ClientGateFeedback.notifyLocked(event.getEntity(), stack);
+            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.BREAK, stack.getHoverName());
         }
     }
 
     @SubscribeEvent
     public static void onAttackEntity(AttackEntityEvent event) {
-        if (event.getEntity().isCreative()) {
+        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
             return;
         }
         ItemStack stack = event.getEntity().getMainHandItem();
-        if (!ClientBlockedItems.isAllowed(stack.getItem(), ItemGate.ATTACK)) {
+        if (!ClientBlocked.isAllowed(stack.getItem(), ItemGate.ATTACK)) {
             event.setCanceled(true);
-            ClientGateFeedback.notifyLocked(event.getEntity(), stack);
+            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.ATTACK, stack.getHoverName());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
+            return;
+        }
+        if (event.getEntity().isShiftKeyDown()) {
+            return;
+        }
+        Block block = event.getLevel().getBlockState(event.getPos()).getBlock();
+        if (!ClientBlocked.isAllowed(block, ItemGate.INTERACT)) {
+            event.setCanceled(true);
+            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, block.getName());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
+            return;
+        }
+        EntityType<?> type = event.getTarget().getType();
+        if (!ClientBlocked.isAllowed(type, ItemGate.INTERACT)) {
+            event.setCanceled(true);
+            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, type.getDescription());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
+        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
+            return;
+        }
+        EntityType<?> type = event.getTarget().getType();
+        if (!ClientBlocked.isAllowed(type, ItemGate.INTERACT)) {
+            event.setCanceled(true);
+            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, type.getDescription());
         }
     }
 }

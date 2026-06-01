@@ -2,7 +2,7 @@ package net.silvertide.pufferfish_item_gating.enforcement;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.silvertide.pufferfish_item_gating.config.ItemGate;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,14 +15,14 @@ public final class GateFeedback {
     private GateFeedback() {
     }
 
-    public static void notifyLocked(ServerPlayer player, ItemStack stack) {
+    public static void notifyLocked(ServerPlayer player, ItemGate gate, Component targetName) {
         long gameTime = player.level().getGameTime();
         Long previous = lastNotifiedGameTime.get(player.getUUID());
         if (previous != null && gameTime - previous < NOTIFY_COOLDOWN_TICKS) {
             return;
         }
         lastNotifiedGameTime.put(player.getUUID(), gameTime);
-        player.displayClientMessage(Component.translatable("message.pufferfish_item_gating.locked", stack.getHoverName()), true);
+        player.displayClientMessage(Component.translatable(gate.lockedMessageKey(), targetName), true);
     }
 
     public static void clearForPlayer(UUID uuid) {

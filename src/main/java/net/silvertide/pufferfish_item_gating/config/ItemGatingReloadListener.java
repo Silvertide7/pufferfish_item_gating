@@ -7,7 +7,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.enforcement.ItemGateEvaluator;
 
@@ -29,8 +31,10 @@ public class ItemGatingReloadListener extends SimpleJsonResourceReloadListener {
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> resources, ResourceManager resourceManager, ProfilerFiller profiler) {
         Map<Item, List<ItemGatingRule>> rulesByItem = new HashMap<>();
-        Map<SkillRequirement, Set<ItemGatePair>> entriesBySkill = new HashMap<>();
-        Set<ItemGatePair> allGatedEntries = new HashSet<>();
+        Map<Block, List<ItemGatingRule>> rulesByBlock = new HashMap<>();
+        Map<EntityType<?>, List<ItemGatingRule>> rulesByEntityType = new HashMap<>();
+        Map<SkillRequirement, Set<GatePair>> entriesBySkill = new HashMap<>();
+        Set<GatePair> allGatedEntries = new HashSet<>();
         int loadedCount = 0;
         int skippedCount = 0;
 
@@ -43,9 +47,9 @@ public class ItemGatingReloadListener extends SimpleJsonResourceReloadListener {
                 continue;
             }
             ItemGatingRule rule = parsed.get();
-            rulesByItem.computeIfAbsent(rule.item(), key -> new ArrayList<>()).add(rule);
+            indexRule(rule, rulesByItem, rulesByBlock, rulesByEntityType);
             for (ItemGate gate : rule.gates()) {
-                ItemGatePair pair = new ItemGatePair(rule.item(), gate);
+                GatePair pair = new GatePair(rule.target(), gate);
                 allGatedEntries.add(pair);
                 for (SkillRequirement requirement : rule.requiredSkills()) {
                     entriesBySkill.computeIfAbsent(requirement, key -> new HashSet<>()).add(pair);
@@ -54,18 +58,42 @@ public class ItemGatingReloadListener extends SimpleJsonResourceReloadListener {
             loadedCount++;
         }
 
-        Map<Item, List<ItemGatingRule>> frozenRules = new HashMap<>();
-        rulesByItem.forEach((item, rules) -> frozenRules.put(item, List.copyOf(rules)));
-        Map<SkillRequirement, Set<ItemGatePair>> frozenEntries = new HashMap<>();
+        Map<Item, List<ItemGatingRule>> frozenItemRules = freezeLists(rulesByItem);
+        Map<Block, List<ItemGatingRule>> frozenBlockRules = freezeLists(rulesByBlock);
+        Map<EntityType<?>, List<ItemGatingRule>> frozenEntityRules = freezeLists(rulesByEntityType);
+        Map<SkillRequirement, Set<GatePair>> frozenEntries = new HashMap<>();
         entriesBySkill.forEach((requirement, pairs) -> frozenEntries.put(requirement, Set.copyOf(pairs)));
 
-        ItemGatingRules.replaceAll(Map.copyOf(frozenRules), Map.copyOf(frozenEntries), Set.copyOf(allGatedEntries));
+        ItemGatingRules.replaceAll(
+                Map.copyOf(frozenItemRules),
+                Map.copyOf(frozenBlockRules),
+                Map.copyOf(frozenEntityRules),
+                Map.copyOf(frozenEntries),
+                Set.copyOf(allGatedEntries));
         ItemGateEvaluator.onRulesReloaded();
 
+        int targetCount = frozenItemRules.size() + frozenBlockRules.size() + frozenEntityRules.size();
         if (skippedCount > 0) {
-            PufferfishItemGating.LOGGER.info("Loaded {} item gating rule(s) for {} item(s); skipped {} invalid rule(s)", loadedCount, frozenRules.size(), skippedCount);
+            PufferfishItemGating.LOGGER.info("Loaded {} item gating rule(s) for {} target(s); skipped {} invalid rule(s)", loadedCount, targetCount, skippedCount);
         } else {
-            PufferfishItemGating.LOGGER.info("Loaded {} item gating rule(s) for {} item(s)", loadedCount, frozenRules.size());
+            PufferfishItemGating.LOGGER.info("Loaded {} item gating rule(s) for {} target(s)", loadedCount, targetCount);
         }
+    }
+
+    private static void indexRule(ItemGatingRule rule,
+                                  Map<Item, List<ItemGatingRule>> rulesByItem,
+                                  Map<Block, List<ItemGatingRule>> rulesByBlock,
+                                  Map<EntityType<?>, List<ItemGatingRule>> rulesByEntityType) {
+        switch (rule.target()) {
+            case GateTarget.ItemTarget it -> rulesByItem.computeIfAbsent(it.value(), key -> new ArrayList<>()).add(rule);
+            case GateTarget.BlockTarget bt -> rulesByBlock.computeIfAbsent(bt.value(), key -> new ArrayList<>()).add(rule);
+            case GateTarget.EntityTypeTarget et -> rulesByEntityType.computeIfAbsent(et.value(), key -> new ArrayList<>()).add(rule);
+        }
+    }
+
+    private static <K> Map<K, List<ItemGatingRule>> freezeLists(Map<K, List<ItemGatingRule>> mutable) {
+        Map<K, List<ItemGatingRule>> frozen = new HashMap<>();
+        mutable.forEach((key, rules) -> frozen.put(key, List.copyOf(rules)));
+        return frozen;
     }
 }

@@ -85,7 +85,18 @@
       "Bash(xargs javap -p)",
       "Bash(javap -p -c net.puffish.skillsmod.SkillsMod)",
       "Bash(javap -p net.puffish.skillsmod.api.SkillsAPI)",
-      "Bash(javap -p net.puffish.skillsmod.main.NeoForgeMain)"
+      "Bash(javap -p net.puffish.skillsmod.main.NeoForgeMain)",
+      "Bash(unzip -p /Users/nate/.gradle/caches/modules-2/files-2.1/net.neoforged/neoforge/21.1.228/a4a27943259526d33758169e138940cd5d713f0a/neoforge-21.1.228-sources.jar \"net/neoforged/neoforge/event/entity/player/PlayerInteractEvent.java\")",
+      "Bash(javap -p net.puffish.skillsmod.config.CategoryConfig)",
+      "Bash(javap -p net.puffish.skillsmod.config.GeneralConfig)",
+      "Bash(javap -c net.puffish.skillsmod.server.data.CategoryData)",
+      "Bash(javap -p net.puffish.skillsmod.server.data.CategoryData)",
+      "Bash(gh api *)",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(f['name'], f['path']\\) for f in data if isinstance\\(data, list\\)]\")",
+      "Bash(python3 -c \"import json, sys; d=json.load\\(sys.stdin\\); [print\\(f['name']\\) for f in d]\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/Caltinor/Project-MMO-2.0/1-21-1/src/main/java/harmonised/pmmo/events/EventHandler.java\")",
+      "Bash(./gradlew compileJava --refresh-dependencies)",
+      "Bash(./gradlew clean *)"
     ]
   }
 }

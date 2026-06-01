@@ -126,7 +126,8 @@ configurations {
 }
 
 dependencies {
-    implementation files('claude_reference/puffish_skills-0.17.3-1.21-neoforge.jar')
+    compileOnly  "curse.maven:puffish-skills-835091:${pufferfish_version}"
+    localRuntime "curse.maven:puffish-skills-835091:${pufferfish_version}"
     compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}:api"
 
     runtimeOnly ("top.theillusivec4.curios:curios-neoforge:${curios_version}")

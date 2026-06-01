@@ -8,7 +8,8 @@ public enum ItemGate implements StringRepresentable {
     BREAK("break"),
     USE("use"),
     EQUIP_ARMOR("equip_armor"),
-    EQUIP_CURIO("equip_curio");
+    EQUIP_CURIO("equip_curio"),
+    INTERACT("interact");
 
     public static final Codec<ItemGate> CODEC = StringRepresentable.fromEnum(ItemGate::values);
 
@@ -21,5 +22,11 @@ public enum ItemGate implements StringRepresentable {
     @Override
     public String getSerializedName() {
         return serializedName;
+    }
+
+    public String lockedMessageKey() {
+        return this == INTERACT
+                ? "message.pufferfish_item_gating.interact_locked"
+                : "message.pufferfish_item_gating.locked";
     }
 }
