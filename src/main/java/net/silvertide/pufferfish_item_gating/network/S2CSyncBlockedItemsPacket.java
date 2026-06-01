@@ -7,6 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.config.GateTarget;
 import net.silvertide.pufferfish_item_gating.config.ItemGate;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -31,7 +32,7 @@ public record S2CSyncBlockedItemsPacket(Map<ItemGate, Set<GateTarget>> blockedBy
             S2CSyncBlockedItemsPacket::decode);
 
     @Override
-    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+    public @NotNull CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
         return TYPE;
     }
 

@@ -22,7 +22,7 @@ public final class ClientGateHandler {
             return;
         }
         ItemStack stack = event.getItemStack();
-        if (!ClientBlocked.isAllowed(stack.getItem(), ItemGate.USE)) {
+        if (ClientBlocked.isBlocked(stack.getItem(), ItemGate.USE)) {
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.USE, stack.getHoverName());
         }
@@ -34,7 +34,7 @@ public final class ClientGateHandler {
             return;
         }
         ItemStack stack = event.getItemStack();
-        if (!ClientBlocked.isAllowed(stack.getItem(), ItemGate.BREAK)) {
+        if (ClientBlocked.isBlocked(stack.getItem(), ItemGate.BREAK)) {
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.BREAK, stack.getHoverName());
         }
@@ -46,7 +46,7 @@ public final class ClientGateHandler {
             return;
         }
         ItemStack stack = event.getEntity().getMainHandItem();
-        if (!ClientBlocked.isAllowed(stack.getItem(), ItemGate.ATTACK)) {
+        if (ClientBlocked.isBlocked(stack.getItem(), ItemGate.ATTACK)) {
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.ATTACK, stack.getHoverName());
         }
@@ -61,7 +61,7 @@ public final class ClientGateHandler {
             return;
         }
         Block block = event.getLevel().getBlockState(event.getPos()).getBlock();
-        if (!ClientBlocked.isAllowed(block, ItemGate.INTERACT)) {
+        if (ClientBlocked.isBlocked(block, ItemGate.INTERACT)) {
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, block.getName());
         }
@@ -73,7 +73,7 @@ public final class ClientGateHandler {
             return;
         }
         EntityType<?> type = event.getTarget().getType();
-        if (!ClientBlocked.isAllowed(type, ItemGate.INTERACT)) {
+        if (ClientBlocked.isBlocked(type, ItemGate.INTERACT)) {
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, type.getDescription());
         }
@@ -85,7 +85,7 @@ public final class ClientGateHandler {
             return;
         }
         EntityType<?> type = event.getTarget().getType();
-        if (!ClientBlocked.isAllowed(type, ItemGate.INTERACT)) {
+        if (ClientBlocked.isBlocked(type, ItemGate.INTERACT)) {
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, type.getDescription());
         }

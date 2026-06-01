@@ -96,7 +96,8 @@
       "Bash(python3 -c \"import json, sys; d=json.load\\(sys.stdin\\); [print\\(f['name']\\) for f in d]\")",
       "Bash(curl -s \"https://raw.githubusercontent.com/Caltinor/Project-MMO-2.0/1-21-1/src/main/java/harmonised/pmmo/events/EventHandler.java\")",
       "Bash(./gradlew compileJava --refresh-dependencies)",
-      "Bash(./gradlew clean *)"
+      "Bash(./gradlew clean *)",
+      "Bash(./gradlew build *)"
     ]
   }
 }

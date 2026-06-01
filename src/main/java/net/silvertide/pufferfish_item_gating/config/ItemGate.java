@@ -2,6 +2,7 @@ package net.silvertide.pufferfish_item_gating.config;
 
 import com.mojang.serialization.Codec;
 import net.minecraft.util.StringRepresentable;
+import org.jetbrains.annotations.NotNull;
 
 public enum ItemGate implements StringRepresentable {
     ATTACK("attack"),
@@ -20,7 +21,7 @@ public enum ItemGate implements StringRepresentable {
     }
 
     @Override
-    public String getSerializedName() {
+    public @NotNull String getSerializedName() {
         return serializedName;
     }
 

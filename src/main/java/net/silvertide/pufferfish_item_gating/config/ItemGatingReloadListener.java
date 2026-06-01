@@ -12,6 +12,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.enforcement.ItemGateEvaluator;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,7 +30,7 @@ public class ItemGatingReloadListener extends SimpleJsonResourceReloadListener {
     }
 
     @Override
-    protected void apply(Map<ResourceLocation, JsonElement> resources, ResourceManager resourceManager, ProfilerFiller profiler) {
+    protected void apply(@NotNull Map<ResourceLocation, JsonElement> resources, @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profiler) {
         Map<Item, List<ItemGatingRule>> rulesByItem = new HashMap<>();
         Map<Block, List<ItemGatingRule>> rulesByBlock = new HashMap<>();
         Map<EntityType<?>, List<ItemGatingRule>> rulesByEntityType = new HashMap<>();

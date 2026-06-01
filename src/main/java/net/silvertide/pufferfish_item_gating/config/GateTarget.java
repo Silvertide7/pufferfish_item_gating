@@ -48,20 +48,13 @@ public sealed interface GateTarget {
     }
 
     static void writeTo(RegistryFriendlyByteBuf buf, GateTarget target) {
-        switch (target) {
-            case ItemTarget it -> {
-                buf.writeByte(0);
-                buf.writeResourceLocation(it.registryId());
-            }
-            case BlockTarget bt -> {
-                buf.writeByte(1);
-                buf.writeResourceLocation(bt.registryId());
-            }
-            case EntityTypeTarget et -> {
-                buf.writeByte(2);
-                buf.writeResourceLocation(et.registryId());
-            }
-        }
+        byte kind = switch (target) {
+            case ItemTarget ignored -> (byte) 0;
+            case BlockTarget ignored -> (byte) 1;
+            case EntityTypeTarget ignored -> (byte) 2;
+        };
+        buf.writeByte(kind);
+        buf.writeResourceLocation(target.registryId());
     }
 
     static Optional<GateTarget> readFrom(RegistryFriendlyByteBuf buf) {

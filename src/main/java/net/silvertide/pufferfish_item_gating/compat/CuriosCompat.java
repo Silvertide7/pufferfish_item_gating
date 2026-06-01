@@ -30,7 +30,7 @@ public final class CuriosCompat {
             return;
         }
         ItemStack stack = event.getStack();
-        if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.EQUIP_CURIO)) {
+        if (ItemGateEvaluator.isBlocked(player, stack.getItem(), ItemGate.EQUIP_CURIO)) {
             event.setEquipResult(TriState.FALSE);
             GateFeedback.notifyLocked(player, ItemGate.EQUIP_CURIO, stack.getHoverName());
         }
@@ -51,7 +51,7 @@ public final class CuriosCompat {
             if (stack.isEmpty()) {
                 continue;
             }
-            if (ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.EQUIP_CURIO)) {
+            if (!ItemGateEvaluator.isBlocked(player, stack.getItem(), ItemGate.EQUIP_CURIO)) {
                 continue;
             }
             ItemStack extracted = stacks.extractItem(slot, stack.getCount(), false);

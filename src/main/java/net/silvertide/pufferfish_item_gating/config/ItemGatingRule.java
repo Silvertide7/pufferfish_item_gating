@@ -76,9 +76,9 @@ public record ItemGatingRule(GateTarget target, Set<ItemGate> gates, List<SkillR
     }
 
     private static DataResult<RawRule> toRaw(ItemGatingRule rule) {
-        Optional<Item> item = rule.target instanceof GateTarget.ItemTarget it ? Optional.of(it.value()) : Optional.empty();
-        Optional<Block> block = rule.target instanceof GateTarget.BlockTarget bt ? Optional.of(bt.value()) : Optional.empty();
-        Optional<EntityType<?>> entity = rule.target instanceof GateTarget.EntityTypeTarget et ? Optional.of(et.value()) : Optional.empty();
+        Optional<Item> item = rule.target instanceof GateTarget.ItemTarget(Item itemValue) ? Optional.of(itemValue) : Optional.empty();
+        Optional<Block> block = rule.target instanceof GateTarget.BlockTarget(Block blockValue) ? Optional.of(blockValue) : Optional.empty();
+        Optional<EntityType<?>> entity = rule.target instanceof GateTarget.EntityTypeTarget(EntityType<?> typeValue) ? Optional.of(typeValue) : Optional.empty();
         return DataResult.success(new RawRule(item, block, entity, Optional.of(List.copyOf(rule.gates)), rule.requiredSkills));
     }
 

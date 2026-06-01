@@ -22,20 +22,20 @@ public final class ClientBlocked {
         blocked = copy;
     }
 
-    public static boolean isAllowed(GateTarget target, ItemGate gate) {
+    public static boolean isBlocked(GateTarget target, ItemGate gate) {
         Set<GateTarget> gateBlocked = blocked.get(gate);
-        return gateBlocked == null || !gateBlocked.contains(target);
+        return gateBlocked != null && gateBlocked.contains(target);
     }
 
-    public static boolean isAllowed(Item item, ItemGate gate) {
-        return isAllowed(new GateTarget.ItemTarget(item), gate);
+    public static boolean isBlocked(Item item, ItemGate gate) {
+        return isBlocked(new GateTarget.ItemTarget(item), gate);
     }
 
-    public static boolean isAllowed(Block block, ItemGate gate) {
-        return isAllowed(new GateTarget.BlockTarget(block), gate);
+    public static boolean isBlocked(Block block, ItemGate gate) {
+        return isBlocked(new GateTarget.BlockTarget(block), gate);
     }
 
-    public static boolean isAllowed(EntityType<?> type, ItemGate gate) {
-        return isAllowed(new GateTarget.EntityTypeTarget(type), gate);
+    public static boolean isBlocked(EntityType<?> type, ItemGate gate) {
+        return isBlocked(new GateTarget.EntityTypeTarget(type), gate);
     }
 }

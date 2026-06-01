@@ -33,31 +33,31 @@ public final class ItemGateEvaluator {
     private ItemGateEvaluator() {
     }
 
-    public static boolean isAllowed(ServerPlayer player, GateTarget target, ItemGate gate) {
+    public static boolean isBlocked(ServerPlayer player, GateTarget target, ItemGate gate) {
         EnumMap<ItemGate, Set<GateTarget>> playerBlocked = blockedByPlayer.get(player.getUUID());
         if (playerBlocked == null) {
-            return evaluateFromScratch(player, target, gate);
+            return evaluateBlockedFromScratch(player, target, gate);
         }
         Set<GateTarget> blocked = playerBlocked.get(gate);
-        return blocked == null || !blocked.contains(target);
+        return blocked != null && blocked.contains(target);
     }
 
-    public static boolean isAllowed(ServerPlayer player, Item item, ItemGate gate) {
-        return isAllowed(player, new GateTarget.ItemTarget(item), gate);
+    public static boolean isBlocked(ServerPlayer player, Item item, ItemGate gate) {
+        return isBlocked(player, new GateTarget.ItemTarget(item), gate);
     }
 
-    public static boolean isAllowed(ServerPlayer player, Block block, ItemGate gate) {
-        return isAllowed(player, new GateTarget.BlockTarget(block), gate);
+    public static boolean isBlocked(ServerPlayer player, Block block, ItemGate gate) {
+        return isBlocked(player, new GateTarget.BlockTarget(block), gate);
     }
 
-    public static boolean isAllowed(ServerPlayer player, EntityType<?> type, ItemGate gate) {
-        return isAllowed(player, new GateTarget.EntityTypeTarget(type), gate);
+    public static boolean isBlocked(ServerPlayer player, EntityType<?> type, ItemGate gate) {
+        return isBlocked(player, new GateTarget.EntityTypeTarget(type), gate);
     }
 
     public static void buildForPlayer(ServerPlayer player) {
         EnumMap<ItemGate, Set<GateTarget>> playerBlocked = new EnumMap<>(ItemGate.class);
         for (GatePair pair : ItemGatingRules.allGatedEntries()) {
-            if (!evaluateFromScratch(player, pair.target(), pair.gate())) {
+            if (evaluateBlockedFromScratch(player, pair.target(), pair.gate())) {
                 playerBlocked.computeIfAbsent(pair.gate(), key -> new HashSet<>()).add(pair.target());
             }
         }
@@ -91,18 +91,16 @@ public final class ItemGateEvaluator {
             return;
         }
         for (GatePair pair : affected) {
-            boolean allowed = evaluateFromScratch(player, pair.target(), pair.gate());
+            boolean blocked = evaluateBlockedFromScratch(player, pair.target(), pair.gate());
             Set<GateTarget> gateBlocked = playerBlocked.get(pair.gate());
-            if (allowed) {
-                if (gateBlocked != null) {
-                    gateBlocked.remove(pair.target());
-                }
-            } else {
+            if (blocked) {
                 if (gateBlocked == null) {
                     gateBlocked = new HashSet<>();
                     playerBlocked.put(pair.gate(), gateBlocked);
                 }
                 gateBlocked.add(pair.target());
+            } else if (gateBlocked != null) {
+                gateBlocked.remove(pair.target());
             }
         }
         syncToClient(player, playerBlocked);
@@ -112,7 +110,7 @@ public final class ItemGateEvaluator {
         PacketDistributor.sendToPlayer(player, new S2CSyncBlockedItemsPacket(blocked));
     }
 
-    private static boolean evaluateFromScratch(ServerPlayer player, GateTarget target, ItemGate gate) {
+    private static boolean evaluateBlockedFromScratch(ServerPlayer player, GateTarget target, ItemGate gate) {
         List<ItemGatingRule> rules = rulesFor(target);
         boolean hasApplicableRule = false;
         for (ItemGatingRule rule : rules) {
@@ -124,10 +122,10 @@ public final class ItemGateEvaluator {
             }
             hasApplicableRule = true;
             if (satisfiesRule(player, rule)) {
-                return true;
+                return false;
             }
         }
-        return !hasApplicableRule;
+        return hasApplicableRule;
     }
 
     private static List<ItemGatingRule> rulesFor(GateTarget target) {

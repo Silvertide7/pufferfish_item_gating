@@ -42,11 +42,14 @@ displayName="${mod_name}" #mandatory
 #credits="" #optional
 
 # The authors of the mod, displayed in the mod UI (optional)
-#authors=""
+authors="Silvertide"
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-Example mod description.
+Locks items, blocks, and entities behind player skills from Pufferfish's Skills.
+Items can be gated for attacking, breaking, right-clicking, equipping as armor, or equipping as a Curios accessory.
+Blocks and entities can be gated for right-click interaction (crafting tables, villagers, boats, etc.).
+Rules are defined entirely in datapacks.
 '''
 
 # The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.

@@ -41,7 +41,7 @@ public final class VanillaGateHandler {
             return;
         }
         ItemStack stack = player.getMainHandItem();
-        if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.ATTACK)) {
+        if (ItemGateEvaluator.isBlocked(player, stack.getItem(), ItemGate.ATTACK)) {
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.ATTACK, stack.getHoverName());
         }
@@ -53,7 +53,7 @@ public final class VanillaGateHandler {
             return;
         }
         ItemStack stack = player.getMainHandItem();
-        if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.BREAK)) {
+        if (ItemGateEvaluator.isBlocked(player, stack.getItem(), ItemGate.BREAK)) {
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.BREAK, stack.getHoverName());
         }
@@ -65,7 +65,7 @@ public final class VanillaGateHandler {
             return;
         }
         ItemStack stack = event.getItemStack();
-        if (!ItemGateEvaluator.isAllowed(player, stack.getItem(), ItemGate.USE)) {
+        if (ItemGateEvaluator.isBlocked(player, stack.getItem(), ItemGate.USE)) {
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.USE, stack.getHoverName());
         }
@@ -80,7 +80,7 @@ public final class VanillaGateHandler {
             return;
         }
         Block block = event.getLevel().getBlockState(event.getPos()).getBlock();
-        if (!ItemGateEvaluator.isAllowed(player, block, ItemGate.INTERACT)) {
+        if (ItemGateEvaluator.isBlocked(player, block, ItemGate.INTERACT)) {
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.INTERACT, block.getName());
         }
@@ -92,7 +92,7 @@ public final class VanillaGateHandler {
             return;
         }
         EntityType<?> type = event.getTarget().getType();
-        if (!ItemGateEvaluator.isAllowed(player, type, ItemGate.INTERACT)) {
+        if (ItemGateEvaluator.isBlocked(player, type, ItemGate.INTERACT)) {
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.INTERACT, type.getDescription());
         }
@@ -104,7 +104,7 @@ public final class VanillaGateHandler {
             return;
         }
         EntityType<?> type = event.getTarget().getType();
-        if (!ItemGateEvaluator.isAllowed(player, type, ItemGate.INTERACT)) {
+        if (ItemGateEvaluator.isBlocked(player, type, ItemGate.INTERACT)) {
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.INTERACT, type.getDescription());
         }
@@ -126,7 +126,7 @@ public final class VanillaGateHandler {
         if (event.getFrom().getItem() == newStack.getItem()) {
             return;
         }
-        if (ItemGateEvaluator.isAllowed(player, newStack.getItem(), ItemGate.EQUIP_ARMOR)) {
+        if (!ItemGateEvaluator.isBlocked(player, newStack.getItem(), ItemGate.EQUIP_ARMOR)) {
             return;
         }
         EnumSet<EquipmentSlot> pending = pendingArmorEjects.computeIfAbsent(player.getUUID(), key -> EnumSet.noneOf(EquipmentSlot.class));
@@ -162,7 +162,7 @@ public final class VanillaGateHandler {
         if (inSlot.isEmpty()) {
             return;
         }
-        if (ItemGateEvaluator.isAllowed(player, inSlot.getItem(), ItemGate.EQUIP_ARMOR)) {
+        if (!ItemGateEvaluator.isBlocked(player, inSlot.getItem(), ItemGate.EQUIP_ARMOR)) {
             return;
         }
         ItemStack ejected = inSlot.copy();

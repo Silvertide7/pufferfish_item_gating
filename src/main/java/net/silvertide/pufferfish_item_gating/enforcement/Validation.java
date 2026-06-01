@@ -29,7 +29,7 @@ public final class Validation {
             if (inSlot.isEmpty()) {
                 continue;
             }
-            if (ItemGateEvaluator.isAllowed(player, inSlot.getItem(), ItemGate.EQUIP_ARMOR)) {
+            if (!ItemGateEvaluator.isBlocked(player, inSlot.getItem(), ItemGate.EQUIP_ARMOR)) {
                 continue;
             }
             ItemStack ejected = inSlot.copy();
