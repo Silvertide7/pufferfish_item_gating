@@ -91,7 +91,7 @@ Example mod description.
 [[dependencies.${mod_id}]]
     modId="puffish_skills"
     type="required"
-    versionRange="[0.17,0.18)"
+    versionRange="[0.18,)"
     ordering="AFTER"
     side="BOTH"
 

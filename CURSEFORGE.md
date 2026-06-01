@@ -17,9 +17,17 @@ Locks items, blocks, and entities behind player skills from Pufferfish's Skills.
 - equip it as armor (`equip_armor`)
 - equip it as a Curios accessory (`equip_curio`)
 
-**Block targets** — block right-clicking that specific block (`interact`). Useful for gating things like crafting tables, brewing stands, anvils, doors, levers, or any other interactable block.
+**Block targets** — block right-clicking that specific block (`interact`). Useful for gating things like crafting tables, brewing stands, anvils, furnaces, enchanting tables, beacons, doors, levers, buttons, or any other interactable block. The whole right-click is canceled, so a player holding a block item also can't place it onto the gated block.
 
-**Entity targets** — block right-clicking that entity type (`interact`). Useful for gating things like villager trades, boat/horse mounting, armor stand equipping, etc.
+**Entity targets** — block right-clicking that entity type (`interact`). Covers both the general right-click and the precise-hitbox right-click (so armor stand armor-slot clicks and horse saddling go through this too). Useful for gating:
+
+- villager trading
+- mounting boats, horses, pigs, striders
+- saddling horses
+- feeding / breeding animals (right-click with food)
+- equipping armor onto armor stands
+
+Note that this gates the *right-click* interaction only. Attacking entities is gated separately, on the item used to attack (`attack` gate on the weapon).
 
 Rules are loaded from datapacks, so packs can configure or override what's gated without touching code.
 
@@ -84,6 +92,7 @@ If you typo an item, block, entity, or skill id, the mod logs a warning and skip
 - **Respec safe.** If a player respecs (locks skills) while wearing gated armor or curios, those items get returned to their inventory automatically. The `interact` gate is per-action, so there's nothing to clean up on respec.
 - **Performance.** The blocked-targets list is cached per player on join and updated incrementally when skills unlock or lock. No per-tick or per-action queries into Pufferfish's Skills.
 - **Sneak bypass on blocks.** When sneaking, the `interact` gate on blocks doesn't fire. This lets players place items (or other blocks) adjacent to a gated block without being told they can't interact. Entity gates always fire regardless of sneak.
+- **Action-bar message** reads "You haven't unlocked the skill to interact with X" for `interact` gates (blocks and entities), and "You haven't unlocked the skill to use X" for the item-based gates (attack/break/use/equip). Throttled to once per second so spam-clicking doesn't flood the bar.
 
 ***
 

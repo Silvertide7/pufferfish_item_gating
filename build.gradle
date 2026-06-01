@@ -128,8 +128,8 @@ configurations {
 dependencies {
     compileOnly  "curse.maven:puffish-skills-835091:${pufferfish_version}"
     localRuntime "curse.maven:puffish-skills-835091:${pufferfish_version}"
-    compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}:api"
 
+    compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}:api"
     runtimeOnly ("top.theillusivec4.curios:curios-neoforge:${curios_version}")
 
     // Curios Testing Mods
