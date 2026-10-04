@@ -2,21 +2,61 @@ package net.silvertide.pufferfish_item_gating.config;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.MapLike;
+import com.mojang.serialization.RecordBuilder;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
-public record ItemGatingRule(GateTarget target, Set<ItemGate> gates, List<SkillRequirement> requiredSkills) {
+public record ItemGatingRule(Set<GateTarget> targets, Set<ItemGate> gates, List<SkillRequirement> requiredSkills) {
     private static final Set<ItemGate> ITEM_GATES = Set.of(ItemGate.ATTACK, ItemGate.BREAK, ItemGate.USE, ItemGate.EQUIP_ARMOR, ItemGate.EQUIP_CURIO);
     private static final Set<ItemGate> BLOCK_GATES = Set.of(ItemGate.INTERACT);
     private static final Set<ItemGate> ENTITY_GATES = Set.of(ItemGate.INTERACT);
+
+    private static <T> Codec<T> strictByName(Registry<T> registry) {
+        return ResourceLocation.CODEC.flatXmap(
+                id -> registry.getOptional(id)
+                        .map(DataResult::success)
+                        .orElseGet(() -> DataResult.error(() -> "Unknown registry key in " + registry.key() + ": " + id)),
+                value -> DataResult.success(registry.getKey(value)));
+    }
+
+    private static <A> MapCodec<Optional<A>> strictOptionalField(Codec<A> codec, String name) {
+        return new MapCodec<>() {
+            @Override
+            public <T> DataResult<Optional<A>> decode(DynamicOps<T> ops, MapLike<T> input) {
+                T value = input.get(name);
+                if (value == null) {
+                    return DataResult.success(Optional.empty());
+                }
+                return codec.parse(ops, value).map(Optional::of);
+            }
+
+            @Override
+            public <T> RecordBuilder<T> encode(Optional<A> input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
+                return input.map(value -> prefix.add(name, codec.encodeStart(ops, value))).orElse(prefix);
+            }
+
+            @Override
+            public <T> Stream<T> keys(DynamicOps<T> ops) {
+                return Stream.of(ops.createString(name));
+            }
+        };
+    }
 
     private static <T> Codec<List<T>> nonEmptyListOf(Codec<T> elementCodec, String fieldName) {
         return elementCodec.listOf().flatXmap(
@@ -27,19 +67,19 @@ public record ItemGatingRule(GateTarget target, Set<ItemGate> gates, List<SkillR
     }
 
     private record RawRule(
-            Optional<Item> item,
-            Optional<Block> block,
-            Optional<EntityType<?>> entity,
+            Optional<List<Item>> items,
+            Optional<List<Block>> blocks,
+            Optional<List<EntityType<?>>> entities,
             Optional<List<ItemGate>> gates,
             List<SkillRequirement> requiredSkills
     ) {
     }
 
     private static final Codec<RawRule> RAW_CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            BuiltInRegistries.ITEM.byNameCodec().optionalFieldOf("item").forGetter(RawRule::item),
-            BuiltInRegistries.BLOCK.byNameCodec().optionalFieldOf("block").forGetter(RawRule::block),
-            BuiltInRegistries.ENTITY_TYPE.byNameCodec().optionalFieldOf("entity").forGetter(RawRule::entity),
-            nonEmptyListOf(ItemGate.CODEC, "gates").optionalFieldOf("gates").forGetter(RawRule::gates),
+            strictOptionalField(nonEmptyListOf(strictByName(BuiltInRegistries.ITEM), "items"), "items").forGetter(RawRule::items),
+            strictOptionalField(nonEmptyListOf(strictByName(BuiltInRegistries.BLOCK), "blocks"), "blocks").forGetter(RawRule::blocks),
+            strictOptionalField(nonEmptyListOf(strictByName(BuiltInRegistries.ENTITY_TYPE), "entities"), "entities").forGetter(RawRule::entities),
+            strictOptionalField(nonEmptyListOf(ItemGate.CODEC, "gates"), "gates").forGetter(RawRule::gates),
             nonEmptyListOf(SkillRequirement.CODEC, "skills").fieldOf("skills").forGetter(RawRule::requiredSkills)
     ).apply(instance, RawRule::new));
 
@@ -48,45 +88,65 @@ public record ItemGatingRule(GateTarget target, Set<ItemGate> gates, List<SkillR
             ItemGatingRule::toRaw);
 
     private static DataResult<ItemGatingRule> buildFromRaw(RawRule raw) {
-        int present = (raw.item.isPresent() ? 1 : 0) + (raw.block.isPresent() ? 1 : 0) + (raw.entity.isPresent() ? 1 : 0);
+        int present = (raw.items.isPresent() ? 1 : 0) + (raw.blocks.isPresent() ? 1 : 0) + (raw.entities.isPresent() ? 1 : 0);
         if (present != 1) {
-            return DataResult.error(() -> "Exactly one of 'item', 'block', or 'entity' must be present");
+            return DataResult.error(() -> "Exactly one of 'items', 'blocks', or 'entities' must be present");
         }
-        GateTarget target;
-        Set<ItemGate> defaultGates;
-        if (raw.item.isPresent()) {
-            target = new GateTarget.ItemTarget(raw.item.get());
-            defaultGates = ITEM_GATES;
-        } else if (raw.block.isPresent()) {
-            target = new GateTarget.BlockTarget(raw.block.get());
-            defaultGates = BLOCK_GATES;
+        Set<GateTarget> targets = new LinkedHashSet<>();
+        Set<ItemGate> compatibleGates;
+        String kindName;
+        if (raw.items.isPresent()) {
+            for (Item item : raw.items.get()) {
+                targets.add(new GateTarget.ItemTarget(item));
+            }
+            compatibleGates = ITEM_GATES;
+            kindName = "item";
+        } else if (raw.blocks.isPresent()) {
+            for (Block block : raw.blocks.get()) {
+                targets.add(new GateTarget.BlockTarget(block));
+            }
+            compatibleGates = BLOCK_GATES;
+            kindName = "block";
         } else {
-            target = new GateTarget.EntityTypeTarget(raw.entity.get());
-            defaultGates = ENTITY_GATES;
+            for (EntityType<?> type : raw.entities.get()) {
+                targets.add(new GateTarget.EntityTypeTarget(type));
+            }
+            compatibleGates = ENTITY_GATES;
+            kindName = "entity";
         }
-        Set<ItemGate> gates = raw.gates.<Set<ItemGate>>map(EnumSet::copyOf).orElse(defaultGates);
-        Set<ItemGate> compatible = compatibleGates(target);
+        Set<ItemGate> gates = raw.gates.<Set<ItemGate>>map(EnumSet::copyOf).orElse(compatibleGates);
         for (ItemGate gate : gates) {
-            if (!compatible.contains(gate)) {
-                String targetType = target.typeName();
-                return DataResult.error(() -> "Gate '" + gate.getSerializedName() + "' is not valid for target type '" + targetType + "'");
+            if (!compatibleGates.contains(gate)) {
+                return DataResult.error(() -> "Gate '" + gate.getSerializedName() + "' is not valid for target type '" + kindName + "'");
             }
         }
-        return DataResult.success(new ItemGatingRule(target, Set.copyOf(gates), raw.requiredSkills));
+        return DataResult.success(new ItemGatingRule(Set.copyOf(targets), Set.copyOf(gates), raw.requiredSkills));
     }
 
     private static DataResult<RawRule> toRaw(ItemGatingRule rule) {
-        Optional<Item> item = rule.target instanceof GateTarget.ItemTarget(Item itemValue) ? Optional.of(itemValue) : Optional.empty();
-        Optional<Block> block = rule.target instanceof GateTarget.BlockTarget(Block blockValue) ? Optional.of(blockValue) : Optional.empty();
-        Optional<EntityType<?>> entity = rule.target instanceof GateTarget.EntityTypeTarget(EntityType<?> typeValue) ? Optional.of(typeValue) : Optional.empty();
-        return DataResult.success(new RawRule(item, block, entity, Optional.of(List.copyOf(rule.gates)), rule.requiredSkills));
-    }
-
-    private static Set<ItemGate> compatibleGates(GateTarget target) {
-        return switch (target) {
-            case GateTarget.ItemTarget ignored -> ITEM_GATES;
-            case GateTarget.BlockTarget ignored -> BLOCK_GATES;
-            case GateTarget.EntityTypeTarget ignored -> ENTITY_GATES;
-        };
+        Optional<List<Item>> items = Optional.empty();
+        Optional<List<Block>> blocks = Optional.empty();
+        Optional<List<EntityType<?>>> entities = Optional.empty();
+        GateTarget first = rule.targets.iterator().next();
+        if (first instanceof GateTarget.ItemTarget) {
+            List<Item> list = new ArrayList<>();
+            for (GateTarget target : rule.targets) {
+                list.add(((GateTarget.ItemTarget) target).value());
+            }
+            items = Optional.of(List.copyOf(list));
+        } else if (first instanceof GateTarget.BlockTarget) {
+            List<Block> list = new ArrayList<>();
+            for (GateTarget target : rule.targets) {
+                list.add(((GateTarget.BlockTarget) target).value());
+            }
+            blocks = Optional.of(List.copyOf(list));
+        } else {
+            List<EntityType<?>> list = new ArrayList<>();
+            for (GateTarget target : rule.targets) {
+                list.add(((GateTarget.EntityTypeTarget) target).value());
+            }
+            entities = Optional.of(List.copyOf(list));
+        }
+        return DataResult.success(new RawRule(items, blocks, entities, Optional.of(List.copyOf(rule.gates)), rule.requiredSkills));
     }
 }

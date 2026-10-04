@@ -16,6 +16,9 @@ public final class GateFeedback {
     }
 
     public static void notifyLocked(ServerPlayer player, ItemGate gate, Component targetName) {
+        if (player.connection == null) {
+            return;
+        }
         long gameTime = player.level().getGameTime();
         Long previous = lastNotifiedGameTime.get(player.getUUID());
         if (previous != null && gameTime - previous < NOTIFY_COOLDOWN_TICKS) {

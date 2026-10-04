@@ -23,7 +23,7 @@ import java.util.Set;
 
 public class ItemGatingReloadListener extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new Gson();
-    private static final String DIRECTORY = "item_gates";
+    private static final String DIRECTORY = "pufferfish_skill_gate_rules";
 
     public ItemGatingReloadListener() {
         super(GSON, DIRECTORY);
@@ -48,12 +48,14 @@ public class ItemGatingReloadListener extends SimpleJsonResourceReloadListener {
                 continue;
             }
             ItemGatingRule rule = parsed.get();
-            indexRule(rule, rulesByItem, rulesByBlock, rulesByEntityType);
-            for (ItemGate gate : rule.gates()) {
-                GatePair pair = new GatePair(rule.target(), gate);
-                allGatedEntries.add(pair);
-                for (SkillRequirement requirement : rule.requiredSkills()) {
-                    entriesBySkill.computeIfAbsent(requirement, key -> new HashSet<>()).add(pair);
+            for (GateTarget target : rule.targets()) {
+                indexRuleForTarget(target, rule, rulesByItem, rulesByBlock, rulesByEntityType);
+                for (ItemGate gate : rule.gates()) {
+                    GatePair pair = new GatePair(target, gate);
+                    allGatedEntries.add(pair);
+                    for (SkillRequirement requirement : rule.requiredSkills()) {
+                        entriesBySkill.computeIfAbsent(requirement, key -> new HashSet<>()).add(pair);
+                    }
                 }
             }
             loadedCount++;
@@ -81,14 +83,16 @@ public class ItemGatingReloadListener extends SimpleJsonResourceReloadListener {
         }
     }
 
-    private static void indexRule(ItemGatingRule rule,
-                                  Map<Item, List<ItemGatingRule>> rulesByItem,
-                                  Map<Block, List<ItemGatingRule>> rulesByBlock,
-                                  Map<EntityType<?>, List<ItemGatingRule>> rulesByEntityType) {
-        switch (rule.target()) {
-            case GateTarget.ItemTarget it -> rulesByItem.computeIfAbsent(it.value(), key -> new ArrayList<>()).add(rule);
-            case GateTarget.BlockTarget bt -> rulesByBlock.computeIfAbsent(bt.value(), key -> new ArrayList<>()).add(rule);
-            case GateTarget.EntityTypeTarget et -> rulesByEntityType.computeIfAbsent(et.value(), key -> new ArrayList<>()).add(rule);
+    private static void indexRuleForTarget(GateTarget target, ItemGatingRule rule,
+                                           Map<Item, List<ItemGatingRule>> rulesByItem,
+                                           Map<Block, List<ItemGatingRule>> rulesByBlock,
+                                           Map<EntityType<?>, List<ItemGatingRule>> rulesByEntityType) {
+        if (target instanceof GateTarget.ItemTarget it) {
+            rulesByItem.computeIfAbsent(it.value(), key -> new ArrayList<>()).add(rule);
+        } else if (target instanceof GateTarget.BlockTarget bt) {
+            rulesByBlock.computeIfAbsent(bt.value(), key -> new ArrayList<>()).add(rule);
+        } else if (target instanceof GateTarget.EntityTypeTarget et) {
+            rulesByEntityType.computeIfAbsent(et.value(), key -> new ArrayList<>()).add(rule);
         }
     }
 

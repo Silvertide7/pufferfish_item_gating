@@ -1,7 +1,7 @@
 package net.silvertide.pufferfish_item_gating.config;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Optional;
@@ -9,17 +9,10 @@ import java.util.Optional;
 public sealed interface GateTarget {
     ResourceLocation registryId();
 
-    String typeName();
-
     record ItemTarget(net.minecraft.world.item.Item value) implements GateTarget {
         @Override
         public ResourceLocation registryId() {
             return BuiltInRegistries.ITEM.getKey(value);
-        }
-
-        @Override
-        public String typeName() {
-            return "item";
         }
     }
 
@@ -28,11 +21,6 @@ public sealed interface GateTarget {
         public ResourceLocation registryId() {
             return BuiltInRegistries.BLOCK.getKey(value);
         }
-
-        @Override
-        public String typeName() {
-            return "block";
-        }
     }
 
     record EntityTypeTarget(net.minecraft.world.entity.EntityType<?> value) implements GateTarget {
@@ -40,24 +28,15 @@ public sealed interface GateTarget {
         public ResourceLocation registryId() {
             return BuiltInRegistries.ENTITY_TYPE.getKey(value);
         }
-
-        @Override
-        public String typeName() {
-            return "entity";
-        }
     }
 
-    static void writeTo(RegistryFriendlyByteBuf buf, GateTarget target) {
-        byte kind = switch (target) {
-            case ItemTarget ignored -> (byte) 0;
-            case BlockTarget ignored -> (byte) 1;
-            case EntityTypeTarget ignored -> (byte) 2;
-        };
+    static void writeTo(FriendlyByteBuf buf, GateTarget target) {
+        byte kind = target instanceof ItemTarget ? (byte) 0 : target instanceof BlockTarget ? (byte) 1 : (byte) 2;
         buf.writeByte(kind);
         buf.writeResourceLocation(target.registryId());
     }
 
-    static Optional<GateTarget> readFrom(RegistryFriendlyByteBuf buf) {
+    static Optional<GateTarget> readFrom(FriendlyByteBuf buf) {
         byte kind = buf.readByte();
         ResourceLocation id = buf.readResourceLocation();
         return switch (kind) {

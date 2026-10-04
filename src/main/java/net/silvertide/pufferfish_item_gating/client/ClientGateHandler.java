@@ -1,67 +1,73 @@
 package net.silvertide.pufferfish_item_gating.client;
 
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.event.entity.player.AttackEntityEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.config.ItemGate;
 
-@EventBusSubscriber(modid = PufferfishItemGating.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = PufferfishItemGating.MODID, value = Dist.CLIENT)
 public final class ClientGateHandler {
     private ClientGateHandler() {
     }
 
+    private static boolean isExemptOrServerSide(Player player) {
+        return !player.level().isClientSide() || player.isCreative() || player.isSpectator();
+    }
+
+    private static boolean blockItem(Player player, ItemStack stack, ItemGate gate) {
+        if (!ClientBlocked.isBlocked(stack.getItem(), gate)) {
+            return false;
+        }
+        PufferfishItemGating.LOGGER.info("[diag] client cancels {} on {}", gate, stack.getItem());
+        ClientGateFeedback.notifyLocked(player, gate, stack.getHoverName());
+        return true;
+    }
+
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
+        if (isExemptOrServerSide(event.getEntity())) {
             return;
         }
-        ItemStack stack = event.getItemStack();
-        if (ClientBlocked.isBlocked(stack.getItem(), ItemGate.USE)) {
+        if (blockItem(event.getEntity(), event.getItemStack(), ItemGate.USE)) {
             event.setCanceled(true);
-            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.USE, stack.getHoverName());
         }
     }
 
     @SubscribeEvent
     public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
-        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
+        if (isExemptOrServerSide(event.getEntity())) {
             return;
         }
-        ItemStack stack = event.getItemStack();
-        if (ClientBlocked.isBlocked(stack.getItem(), ItemGate.BREAK)) {
+        if (blockItem(event.getEntity(), event.getItemStack(), ItemGate.BREAK)) {
             event.setCanceled(true);
-            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.BREAK, stack.getHoverName());
         }
     }
 
     @SubscribeEvent
     public static void onAttackEntity(AttackEntityEvent event) {
-        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
+        if (isExemptOrServerSide(event.getEntity())) {
             return;
         }
-        ItemStack stack = event.getEntity().getMainHandItem();
-        if (ClientBlocked.isBlocked(stack.getItem(), ItemGate.ATTACK)) {
+        if (blockItem(event.getEntity(), event.getEntity().getMainHandItem(), ItemGate.ATTACK)) {
             event.setCanceled(true);
-            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.ATTACK, stack.getHoverName());
         }
     }
 
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
-            return;
-        }
-        if (event.getEntity().isShiftKeyDown()) {
+        if (isExemptOrServerSide(event.getEntity()) || event.getEntity().isShiftKeyDown()) {
             return;
         }
         Block block = event.getLevel().getBlockState(event.getPos()).getBlock();
         if (ClientBlocked.isBlocked(block, ItemGate.INTERACT)) {
+            PufferfishItemGating.LOGGER.info("[diag] client cancels INTERACT on block {}", block);
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, block.getName());
         }
@@ -69,23 +75,20 @@ public final class ClientGateHandler {
 
     @SubscribeEvent
     public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
-        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
-            return;
-        }
-        EntityType<?> type = event.getTarget().getType();
-        if (ClientBlocked.isBlocked(type, ItemGate.INTERACT)) {
-            event.setCanceled(true);
-            ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, type.getDescription());
-        }
+        blockEntityInteract(event, event.getTarget().getType());
     }
 
     @SubscribeEvent
     public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
-        if (event.getEntity().isCreative() || event.getEntity().isSpectator()) {
+        blockEntityInteract(event, event.getTarget().getType());
+    }
+
+    private static void blockEntityInteract(PlayerInteractEvent event, EntityType<?> type) {
+        if (isExemptOrServerSide(event.getEntity())) {
             return;
         }
-        EntityType<?> type = event.getTarget().getType();
         if (ClientBlocked.isBlocked(type, ItemGate.INTERACT)) {
+            PufferfishItemGating.LOGGER.info("[diag] client cancels INTERACT on entity {}", type);
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, type.getDescription());
         }

@@ -5,7 +5,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.puffish.skillsmod.api.Skill;
 import net.puffish.skillsmod.api.SkillsAPI;
 import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
@@ -15,6 +14,7 @@ import net.silvertide.pufferfish_item_gating.config.ItemGate;
 import net.silvertide.pufferfish_item_gating.config.ItemGatingRule;
 import net.silvertide.pufferfish_item_gating.config.ItemGatingRules;
 import net.silvertide.pufferfish_item_gating.config.SkillRequirement;
+import net.silvertide.pufferfish_item_gating.network.NetworkSetup;
 import net.silvertide.pufferfish_item_gating.network.S2CSyncBlockedItemsPacket;
 
 import java.util.EnumMap;
@@ -74,6 +74,7 @@ public final class ItemGateEvaluator {
     }
 
     public static void onSkillUnlock(ServerPlayer player, ResourceLocation category, String skillId) {
+        PufferfishItemGating.LOGGER.info("[diag] SkillUnlock {} {}/{} on {}", player.getGameProfile().getName(), category, skillId, Thread.currentThread().getName());
         recomputeAffected(player, new SkillRequirement(category, skillId));
     }
 
@@ -107,7 +108,14 @@ public final class ItemGateEvaluator {
     }
 
     private static void syncToClient(ServerPlayer player, EnumMap<ItemGate, Set<GateTarget>> blocked) {
-        PacketDistributor.sendToPlayer(player, new S2CSyncBlockedItemsPacket(blocked));
+        PufferfishItemGating.LOGGER.info("[diag] server syncing blocked map to {} on {}: {}", player.getGameProfile().getName(), Thread.currentThread().getName(), summarize(blocked));
+        NetworkSetup.sendToPlayer(player, new S2CSyncBlockedItemsPacket(blocked));
+    }
+
+    public static String summarize(Map<ItemGate, Set<GateTarget>> blocked) {
+        StringBuilder out = new StringBuilder();
+        blocked.forEach((gate, targets) -> out.append(gate).append('=').append(targets.size()).append(' '));
+        return out.toString().trim();
     }
 
     private static boolean evaluateBlockedFromScratch(ServerPlayer player, GateTarget target, ItemGate gate) {
@@ -129,11 +137,13 @@ public final class ItemGateEvaluator {
     }
 
     private static List<ItemGatingRule> rulesFor(GateTarget target) {
-        return switch (target) {
-            case GateTarget.ItemTarget it -> ItemGatingRules.forItem(it.value());
-            case GateTarget.BlockTarget bt -> ItemGatingRules.forBlock(bt.value());
-            case GateTarget.EntityTypeTarget et -> ItemGatingRules.forEntityType(et.value());
-        };
+        if (target instanceof GateTarget.ItemTarget it) {
+            return ItemGatingRules.forItem(it.value());
+        }
+        if (target instanceof GateTarget.BlockTarget bt) {
+            return ItemGatingRules.forBlock(bt.value());
+        }
+        return ItemGatingRules.forEntityType(((GateTarget.EntityTypeTarget) target).value());
     }
 
     private static boolean isRuleEnforceable(ItemGatingRule rule) {

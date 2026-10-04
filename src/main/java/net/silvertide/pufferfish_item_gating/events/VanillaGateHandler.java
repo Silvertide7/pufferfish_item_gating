@@ -6,13 +6,13 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
-import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
+import net.minecraftforge.event.entity.player.AttackEntityEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.level.BlockEvent;
+import net.minecraftforge.event.TickEvent;
 import net.silvertide.pufferfish_item_gating.PufferfishItemGating;
 import net.silvertide.pufferfish_item_gating.config.ItemGate;
 import net.silvertide.pufferfish_item_gating.enforcement.GateFeedback;
@@ -24,7 +24,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 
-@EventBusSubscriber(modid = PufferfishItemGating.MODID)
+@Mod.EventBusSubscriber(modid = PufferfishItemGating.MODID)
 public final class VanillaGateHandler {
     private static final Map<UUID, EnumSet<EquipmentSlot>> pendingArmorEjects = new HashMap<>();
 
@@ -66,6 +66,7 @@ public final class VanillaGateHandler {
         }
         ItemStack stack = event.getItemStack();
         if (ItemGateEvaluator.isBlocked(player, stack.getItem(), ItemGate.USE)) {
+            PufferfishItemGating.LOGGER.info("[diag] server cancels USE on {}", stack.getItem());
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.USE, stack.getHoverName());
         }
@@ -81,6 +82,7 @@ public final class VanillaGateHandler {
         }
         Block block = event.getLevel().getBlockState(event.getPos()).getBlock();
         if (ItemGateEvaluator.isBlocked(player, block, ItemGate.INTERACT)) {
+            PufferfishItemGating.LOGGER.info("[diag] server cancels INTERACT on block {}", block);
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.INTERACT, block.getName());
         }
@@ -116,7 +118,7 @@ public final class VanillaGateHandler {
             return;
         }
         EquipmentSlot slot = event.getSlot();
-        if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR) {
+        if (slot.getType() != EquipmentSlot.Type.ARMOR) {
             return;
         }
         ItemStack newStack = event.getTo();
@@ -134,8 +136,8 @@ public final class VanillaGateHandler {
     }
 
     @SubscribeEvent
-    public static void onServerPreTick(ServerTickEvent.Pre event) {
-        if (pendingArmorEjects.isEmpty()) {
+    public static void onServerPreTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.START || pendingArmorEjects.isEmpty()) {
             return;
         }
         MinecraftServer server = event.getServer();

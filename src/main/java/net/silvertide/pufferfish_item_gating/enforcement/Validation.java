@@ -3,7 +3,7 @@ package net.silvertide.pufferfish_item_gating.enforcement;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import net.silvertide.pufferfish_item_gating.config.ItemGate;
 
 public final class Validation {
@@ -22,7 +22,7 @@ public final class Validation {
 
     private static void validateArmor(ServerPlayer player) {
         for (EquipmentSlot slot : EquipmentSlot.values()) {
-            if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR) {
+            if (slot.getType() != EquipmentSlot.Type.ARMOR) {
                 continue;
             }
             ItemStack inSlot = player.getItemBySlot(slot);
