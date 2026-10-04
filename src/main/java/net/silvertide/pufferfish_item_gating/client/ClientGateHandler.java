@@ -25,7 +25,6 @@ public final class ClientGateHandler {
         if (!ClientBlocked.isBlocked(stack.getItem(), gate)) {
             return false;
         }
-        PufferfishItemGating.LOGGER.info("[diag] client cancels {} on {}", gate, stack.getItem());
         ClientGateFeedback.notifyLocked(player, gate, stack.getHoverName());
         return true;
     }
@@ -67,7 +66,6 @@ public final class ClientGateHandler {
         }
         Block block = event.getLevel().getBlockState(event.getPos()).getBlock();
         if (ClientBlocked.isBlocked(block, ItemGate.INTERACT)) {
-            PufferfishItemGating.LOGGER.info("[diag] client cancels INTERACT on block {}", block);
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, block.getName());
         }
@@ -88,7 +86,6 @@ public final class ClientGateHandler {
             return;
         }
         if (ClientBlocked.isBlocked(type, ItemGate.INTERACT)) {
-            PufferfishItemGating.LOGGER.info("[diag] client cancels INTERACT on entity {}", type);
             event.setCanceled(true);
             ClientGateFeedback.notifyLocked(event.getEntity(), ItemGate.INTERACT, type.getDescription());
         }

@@ -74,7 +74,6 @@ public final class ItemGateEvaluator {
     }
 
     public static void onSkillUnlock(ServerPlayer player, ResourceLocation category, String skillId) {
-        PufferfishItemGating.LOGGER.info("[diag] SkillUnlock {} {}/{} on {}", player.getGameProfile().getName(), category, skillId, Thread.currentThread().getName());
         recomputeAffected(player, new SkillRequirement(category, skillId));
     }
 
@@ -108,14 +107,7 @@ public final class ItemGateEvaluator {
     }
 
     private static void syncToClient(ServerPlayer player, EnumMap<ItemGate, Set<GateTarget>> blocked) {
-        PufferfishItemGating.LOGGER.info("[diag] server syncing blocked map to {} on {}: {}", player.getGameProfile().getName(), Thread.currentThread().getName(), summarize(blocked));
         NetworkSetup.sendToPlayer(player, new S2CSyncBlockedItemsPacket(blocked));
-    }
-
-    public static String summarize(Map<ItemGate, Set<GateTarget>> blocked) {
-        StringBuilder out = new StringBuilder();
-        blocked.forEach((gate, targets) -> out.append(gate).append('=').append(targets.size()).append(' '));
-        return out.toString().trim();
     }
 
     private static boolean evaluateBlockedFromScratch(ServerPlayer player, GateTarget target, ItemGate gate) {

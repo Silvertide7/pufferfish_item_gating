@@ -66,7 +66,6 @@ public final class VanillaGateHandler {
         }
         ItemStack stack = event.getItemStack();
         if (ItemGateEvaluator.isBlocked(player, stack.getItem(), ItemGate.USE)) {
-            PufferfishItemGating.LOGGER.info("[diag] server cancels USE on {}", stack.getItem());
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.USE, stack.getHoverName());
         }
@@ -82,7 +81,6 @@ public final class VanillaGateHandler {
         }
         Block block = event.getLevel().getBlockState(event.getPos()).getBlock();
         if (ItemGateEvaluator.isBlocked(player, block, ItemGate.INTERACT)) {
-            PufferfishItemGating.LOGGER.info("[diag] server cancels INTERACT on block {}", block);
             event.setCanceled(true);
             GateFeedback.notifyLocked(player, ItemGate.INTERACT, block.getName());
         }
